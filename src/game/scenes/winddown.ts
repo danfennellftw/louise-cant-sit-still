@@ -5,9 +5,10 @@ import { font, headline } from '../ui';
 
 const VIDEOS = [
   'Michelle Choi — a week of living (very) alone',
-  'Greener Grass — new episode!!',
+  'Jeb from Greener Grass — new upload!!',
   'Drew Binsky — country #197',
-  'skincare deep dive (steps 6 through 11)',
+  'skincare influencer — steps 6 through 11',
+  'some influencer organizing a fridge (ASMR)',
 ];
 
 type Phase = 'bed' | 'dogduty' | 'tucked';
@@ -111,7 +112,7 @@ export class WindDownScene implements Scene {
     g.fillStyle = 'rgba(255,243,221,0.85)';
     g.textAlign = 'center';
     g.fillText(
-      this.sleepyT >= 0 ? 'shhh.' : `tap the TV for the next video — ${this.watched} / 3`,
+      this.sleepyT >= 0 ? 'shhh.' : `tap the TV to flip channels — ${this.watched} / 3`,
       W / 2,
       78,
     );
@@ -274,8 +275,8 @@ export class WindDownScene implements Scene {
         this.e.state.stats.videosWatched = this.watched;
         this.vid = (this.vid + 1) % VIDEOS.length;
         this.e.fx.sparkle(x, y, '#8fa8ff');
-        if (this.watched === 1) this.e.toast('One more. Just one. (lie)');
-        if (this.watched === 2) this.e.toast('Drew is in country #197. Louise is in bed. Balance.');
+        if (this.watched === 1) this.e.toast('Video abandoned at 40%. She flips. Dan says nothing.');
+        if (this.watched === 2) this.e.toast('Another flip. Finishing a video is for other people.');
         if (this.watched >= 3) {
           this.sleepyT = 0;
           this.e.fx.hearts(W / 2, 500, 10);

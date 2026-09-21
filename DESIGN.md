@@ -35,7 +35,9 @@ day, playable in ~5 minutes on a phone with one restless thumb.
    she waves at classmates, they never wave back, she finishes anyway.
    She always finishes.
 6. **Wind-down YouTube** — in bed with Dan, dogs piled on the blanket,
-   watching Michelle Choi / Greener Grass / Drew Binsky / skincare videos;
+   flipping channels between Michelle Choi, Jeb from Greener Grass,
+   Drew Binsky, skincare and other influencers (text labels only, never
+   logos). She abandons every video partway — flipping IS the mechanic;
    the sit-still meter clocks out; she finally sits still (asleep, but it
    counts). Then the FINAL chore: carry Mochi and Leo downstairs to their
    beds (Louise lost rock-paper-scissors; she always loses it).
