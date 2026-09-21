@@ -312,7 +312,8 @@ export class MorningScene implements Scene {
     for (const yp of this.yaps) yp.t += dt;
     this.yaps = this.yaps.filter((yp) => yp.t < 0.9);
 
-    if (this.calm >= 100) {
+    // 99+ counts: tap-clamped calm decays a hair before this check runs
+    if (this.calm >= 99) {
       this.e.state.stats.barksCalmed++;
       this.e.bumpChill(10);
       this.e.fx.confetti(this.leoX, 460, 25);

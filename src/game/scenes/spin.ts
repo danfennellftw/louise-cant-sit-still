@@ -221,53 +221,97 @@ export class SpinScene implements Scene {
   }
 
   private drawLouiseBike(g: CanvasRenderingContext2D, x: number, y: number, pedal: number): void {
-    drawShadow(g, x, y + 8, 220);
-    // Louise leaning into the ride (sprite tilted forward, bobbing with cadence)
-    const bob = Math.sin(pedal) * 4;
-    drawSprite(g, sprites.louise, x - 14, y - 40 + bob, 230, { rot: 0.3 + Math.sin(pedal) * 0.02 });
-    // spin bike drawn over her lower half
+    drawShadow(g, x, y + 10, 240);
+    const bob = Math.sin(pedal) * 3;
+
+    // --- behind Louise: seat + seat post ---
     g.strokeStyle = '#1d1d28';
-    g.lineWidth = 10;
+    g.lineWidth = 12;
     g.lineCap = 'round';
     g.beginPath();
-    g.moveTo(x - 80, y);
-    g.lineTo(x + 80, y);
+    g.moveTo(x - 34, y - 30);
+    g.lineTo(x - 48, y - 118);
     g.stroke();
+    g.fillStyle = '#14141d';
     g.beginPath();
-    g.moveTo(x - 56, y);
-    g.lineTo(x - 10, y - 70);
-    g.moveTo(x + 54, y);
-    g.lineTo(x + 16, y - 74);
-    g.stroke();
-    // flywheel
-    g.fillStyle = '#2c2c3a';
-    g.beginPath();
-    g.arc(x + 52, y - 44, 30, 0, Math.PI * 2);
+    g.ellipse(x - 52, y - 122, 26, 10, -0.15, 0, Math.PI * 2);
     g.fill();
+
+    // --- Louise climbing out of the saddle, standing on the pedals ---
+    drawSprite(g, sprites.louise, x - 4, y - 62 + bob, 215, { rot: 0.1 + Math.sin(pedal) * 0.02 });
+
+    // --- bike over her lower half ---
+    // heavy base
+    g.strokeStyle = '#1d1d28';
+    g.lineWidth = 12;
+    g.beginPath();
+    g.moveTo(x - 92, y);
+    g.lineTo(x + 92, y);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(x - 62, y - 4);
+    g.lineTo(x - 34, y - 32);
+    g.moveTo(x + 62, y - 4);
+    g.lineTo(x + 42, y - 60);
+    g.stroke();
+    // big flywheel hiding her feet
+    g.fillStyle = '#23232f';
+    g.beginPath();
+    g.arc(x + 34, y - 46, 46, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.08)';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(x + 34, y - 46, 36, 0, Math.PI * 2);
+    g.stroke();
     g.fillStyle = '#c22c3a';
     g.beginPath();
-    g.arc(x + 52, y - 44, 11, 0, Math.PI * 2);
+    g.arc(x + 34, y - 46, 13, 0, Math.PI * 2);
     g.fill();
-    // pedals spinning
-    const px = x + 8 + Math.cos(pedal) * 16;
-    const py = y - 40 + Math.sin(pedal) * 16;
-    g.strokeStyle = '#55555f';
-    g.lineWidth = 6;
-    g.beginPath();
-    g.moveTo(px, py);
-    g.lineTo(x + 8 - Math.cos(pedal) * 16, y - 40 - Math.sin(pedal) * 16);
-    g.stroke();
-    g.fillStyle = '#e8e8e8';
-    g.beginPath();
-    g.arc(px, py, 7, 0, Math.PI * 2);
-    g.fill();
-    // handlebars
+    // spinning crank + pedals
+    const cx = x + 34;
+    const cy = y - 46;
+    for (const dir of [1, -1]) {
+      const px = cx + Math.cos(pedal) * 26 * dir;
+      const py = cy + Math.sin(pedal) * 26 * dir;
+      g.strokeStyle = '#55555f';
+      g.lineWidth = 7;
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.lineTo(px, py);
+      g.stroke();
+      g.fillStyle = '#e8e8e8';
+      g.beginPath();
+      g.arc(px, py, 8, 0, Math.PI * 2);
+      g.fill();
+    }
+    // stem + handlebars up front
     g.strokeStyle = '#1d1d28';
-    g.lineWidth = 8;
+    g.lineWidth = 11;
     g.beginPath();
-    g.moveTo(x + 16, y - 74);
-    g.quadraticCurveTo(x + 34, y - 96, x + 52, y - 88);
+    g.moveTo(x + 42, y - 60);
+    g.lineTo(x + 62, y - 128);
     g.stroke();
+    g.lineWidth = 9;
+    g.beginPath();
+    g.moveTo(x + 44, y - 134);
+    g.quadraticCurveTo(x + 68, y - 148, x + 84, y - 124);
+    g.stroke();
+    // water bottle, obviously
+    g.fillStyle = '#7ed6df';
+    g.save();
+    g.translate(x + 6, y - 96);
+    g.rotate(0.3);
+    g.beginPath();
+    g.moveTo(-6, -14);
+    g.lineTo(6, -14);
+    g.lineTo(7, 14);
+    g.lineTo(-7, 14);
+    g.closePath();
+    g.fill();
+    g.fillStyle = '#fff';
+    g.fillRect(-6, -18, 12, 5);
+    g.restore();
   }
 
   down(x: number, y: number): void {

@@ -35,6 +35,8 @@ async function boot(): Promise<void> {
   engine.add('recap', new RecapScene(engine));
   engine.add('daymap', new DayMapScene(engine));
   engine.goNow('title');
+  // debug/QA hook (used by scripts/e2e-playtest.mjs)
+  (window as unknown as { __game?: Engine }).__game = engine;
 }
 
 void boot();
