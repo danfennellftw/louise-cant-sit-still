@@ -27,7 +27,9 @@ day, playable in ~5 minutes on a phone with one restless thumb.
    everywhere, mystery bottles get re-shelved — cabinet organizing is
    self-care), massage (whack-a-knot), make the bed (dogs sabotage round
    two), Organize Kitchen Cabinets and Organize Bathroom Cabinets
-   (sort-to-shelf minis; Dan's shelf holds one deodorant), the Garage
+   (sort-to-shelf minis; the bathroom counter is COVERED in skincare
+   bottles that are canonically not to be touched; Dan's shelf holds one
+   deodorant), the Garage
    Sauna (yes, in the garage — hold to endure the heat while planning
    thoughts intrude), Nina call,
    awkward AI-friend attempt. No jazz beat — "jazz" in the brief just

@@ -1543,7 +1543,7 @@ class Skincare implements Mini {
       this.endT += dt;
       if (this.endT > 1.8) {
         this.e.state.stats.skincareSteps = 5;
-        this.finish('Glowing. Dewy. The cabinet is alphabetized.');
+        this.finish('Glowing. Dewy. Routine 1 of approximately 5 today.');
       }
     }
   }
@@ -1928,7 +1928,7 @@ function cabCfg(which: 'kitchen' | 'bathroom'): CabCfg {
   return {
     title: 'ORGANIZE: BATHROOM CABINETS',
     intro: 'Not the skincare cabinet. That one is already a shrine.',
-    outro: "Bathroom: sorted. Dan's shelf remains one (1) deodorant.",
+      outro: "Cabinets: sorted. Counter bottles: untouchable. Dan's shelf: one (1) deodorant.",
     shelves: ['HAIR', 'TOWELS', "DAN'S SHELF"],
     items: [
       { cat: 0, kind: 'dryer' },
@@ -1983,6 +1983,24 @@ class OrganizeCabinets implements Mini {
     this.cfg.bg(g);
     g.fillStyle = 'rgba(255,250,242,0.25)';
     g.fillRect(0, 0, W, H);
+    if (this.cfg.shelves[2] === "DAN'S SHELF") {
+      // the bathroom counter: skincare bottles ALL OVER it, as documented
+      g.fillStyle = '#d3c4a8';
+      rr(g, 20, 448, W - 40, 14, 5);
+      g.fill();
+      const colors = ['#f4a7b0', '#d3a7e8', '#7ed6df', '#e6a23c', '#c0605e', '#8e7cc3', '#5b8c6e'];
+      for (let i = 0; i < 14; i++) {
+        const bx = 34 + ((i * 61) % (W - 70));
+        const bh = 16 + ((i * 7) % 14);
+        g.fillStyle = colors[i % colors.length];
+        rr(g, bx, 448 - bh, 9 + (i % 3) * 3, bh, 3);
+        g.fill();
+      }
+      g.fillStyle = 'rgba(74,46,51,0.6)';
+      g.font = font(10, 600);
+      g.textAlign = 'center';
+      g.fillText('the counter (not part of this mission. yet.)', W / 2, 476);
+    }
     headline(g, this.cfg.title, W / 2, 56, 21, '#4a2e33', 'rgba(255,255,255,0.9)');
     g.font = font(14, 500);
     g.fillStyle = '#4a2e33';
