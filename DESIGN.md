@@ -59,8 +59,9 @@ Mochi/Leo on travel screens is the intended healing loop.
   - `louise.png` / `louise-face.png` — maroon top, cream pants, long ponytail
     with caramel highlights.
   - `dan.png` / `dan-face.png` — glasses, short dark hair, black polo.
-  - `mochi.png` — fluffy white/tan Biewer-ish pup.
-  - `leo.png` — classic Yorkie: tan face and legs, dark steel back.
+  - `mochi.png` — **Mochi**, Biewer terrier: fluffy white/tan (canonical per Dan).
+  - `leo.png` — **Leo**, brown/black Yorkie: tan face and legs, dark steel back
+    (canonical per Dan — never "Aleo").
 - Sprites are animated puppet-style only (bob, tilt, squash, flip via
   `src/game/sprites.ts`) — never stretched into new poses, never redrawn as
   stick figures. If a pose can't be puppeted, stage around it with props
