@@ -192,9 +192,9 @@ export class MorningScene implements Scene {
   }
 
   move(x: number, y: number): void {
-    if (this.phase === 'bark') {
-      this.holdingLeo = this.e.pointerHeld && Math.hypot(x - this.leoX, y - 560) < 90;
-    } else if (this.phase === 'carpet' && this.e.pointerHeld) {
+    // note: once Leo is grabbed, the hold sticks until pointer-up even if the
+    // finger drifts — recomputing on move made the soothe impossibly fiddly
+    if (this.phase === 'carpet' && this.e.pointerHeld) {
       this.carpetScrub(x, y);
     }
   }
@@ -371,8 +371,14 @@ export class MorningScene implements Scene {
   }
 
   private barkDown(x: number, y: number): void {
-    this.holdingLeo = Math.hypot(x - this.leoX, y - 560) < 90;
-    if (!this.holdingLeo) this.e.fx.sparkle(x, y);
+    this.holdingLeo = Math.hypot(x - this.leoX, y - 545) < 120;
+    if (this.holdingLeo) {
+      // taps soothe too, so rapid petting also works
+      this.calm = Math.min(100, this.calm + 6);
+      this.e.fx.hearts(this.leoX, 500, 2);
+    } else {
+      this.e.fx.sparkle(x, y);
+    }
   }
 
   // -------------------------------------------------- Mochi carpet crime
