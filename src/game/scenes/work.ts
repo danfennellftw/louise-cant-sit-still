@@ -1,6 +1,6 @@
 import { Engine, Scene, W, rr } from '../engine';
 import { bgDesk } from '../art';
-import { drawLouise, drawDog } from '../sprites';
+import { drawLouise, drawDan, drawDog } from '../sprites';
 import { font, drawMeter, headline } from '../ui';
 
 interface Ping {
@@ -118,16 +118,18 @@ export class WorkScene implements Scene {
     headline(g, 'THE SITTING OLYMPICS', W / 2, 30, 22, '#4a2e33', 'rgba(255,255,255,0.9)');
     drawMeter(g, W / 2 - 130, 46, 260, 18, this.progress / 100, '#5b8c6e', `workday ${Math.round(this.progress)}%`);
 
-    // Louise at her chair (facing us, like the photo), Mochi on lap
+    // shared office: Louise at her desk, Dan locked in at his (same room)
     const stand = this.standT >= 0;
     const wob = stand ? Math.sin(this.t * 24) * 0.05 : Math.sin(this.t * 1.4) * 0.012;
-    drawLouise(g, 190, stand ? 630 : 655, stand ? 235 : 215, this.t, { rot: wob });
-    drawDog(g, 'mochi', 155, 668, 78, this.t, { trot: stand ? this.t * 10 : 0 });
+    drawDan(g, 398, 648, 190, this.t, { rot: stand ? -0.03 : Math.sin(this.t * 0.8) * 0.008 });
+    drawLouise(g, 165, stand ? 630 : 655, stand ? 235 : 215, this.t, { rot: wob });
+    drawDog(g, 'mochi', 130, 668, 78, this.t, { trot: stand ? this.t * 10 : 0 });
     if (this.doneT < 0) {
       g.font = font(12, 500);
       g.fillStyle = 'rgba(74,46,51,0.75)';
       g.textAlign = 'center';
-      g.fillText(stand ? 'SHE STOOD UP' : 'mochi: emotional support colleague', 190, 700);
+      g.fillText(stand ? 'SHE STOOD UP' : 'mochi: emotional support colleague', 165, 700);
+      g.fillText(stand ? 'dan: (does not look up)' : 'dan: same room, deep focus', 398, 692);
     }
 
     // pings
@@ -198,6 +200,7 @@ export class WorkScene implements Scene {
       this.progress = Math.max(0, this.progress - 3);
       this.e.fx.hearts(x, y, 5);
       this.e.toast('She went. Of course she went. The pantry looks amazing.');
+      this.e.toast('dan, not looking up: "have fun."');
       return;
     }
     for (const p of this.pings) {

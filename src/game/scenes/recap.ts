@@ -59,6 +59,7 @@ export class RecapScene implements Scene {
       ['facial completed', `${s.facialPct}%`],
       ['dinner brownness', `${s.brownPct}%`],
       ['dan smell complaints', `${s.danComplaints} (he stayed)`],
+      ['sauna endured', `${s.saunaSecs}s (planning)`],
       ['waves returned by classmates', `0 of ${s.waves}`],
       ['skincare steps completed', `${s.skincareSteps} of 5`],
       ['cuddles', `${s.cuddles}`],
@@ -70,7 +71,7 @@ export class RecapScene implements Scene {
     drawPanel(g, 30, 130, W - 60, 460, 'rgba(255,250,242,0.94)');
     g.textBaseline = 'middle';
     lines.forEach(([label, value], i) => {
-      const y = 152 + i * 24.5;
+      const y = 150 + i * 23.2;
       g.font = font(13, 500);
       g.fillStyle = '#6b463c';
       g.textAlign = 'left';

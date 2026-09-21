@@ -494,6 +494,42 @@ export function bgKitchen(g: CanvasRenderingContext2D, phase: DayPhase = 'evenin
   g.fillRect(0, 650, W, H - 650);
 }
 
+/** the garage: concrete, roller door, and the sauna box */
+export function bgGarage(g: CanvasRenderingContext2D): void {
+  g.fillStyle = '#b9b2ac';
+  g.fillRect(0, 0, W, H);
+  // roller door
+  g.fillStyle = '#a49d96';
+  rr(g, 40, 60, 400, 250, 8);
+  g.fill();
+  g.strokeStyle = 'rgba(70,64,60,0.3)';
+  g.lineWidth = 3;
+  for (let i = 1; i < 6; i++) {
+    g.beginPath();
+    g.moveTo(40, 60 + i * 42);
+    g.lineTo(440, 60 + i * 42);
+    g.stroke();
+  }
+  // storage shelf with bins
+  g.fillStyle = '#8a8178';
+  rr(g, 30, 340, 150, 12, 4);
+  g.fill();
+  for (let i = 0; i < 3; i++) {
+    g.fillStyle = ['#7ea8c4', '#c9b16a', '#9aa38b'][i];
+    rr(g, 38 + i * 46, 310, 40, 30, 5);
+    g.fill();
+  }
+  // concrete floor
+  g.fillStyle = '#8f8a85';
+  g.fillRect(0, 620, W, H - 620);
+  g.strokeStyle = 'rgba(60,55,50,0.2)';
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(0, 660);
+  g.lineTo(W, 700);
+  g.stroke();
+}
+
 /** dark neon spin studio for the Grit Cycle finale */
 export function bgSpinStudio(g: CanvasRenderingContext2D, t: number): void {
   const grad = g.createLinearGradient(0, 0, 0, H);

@@ -26,6 +26,7 @@ export interface Stats {
   treatsGiven: number;
   honks: number;
   danComplaints: number;
+  saunaSecs: number;
 }
 
 function freshStats(): Stats {
@@ -57,6 +58,7 @@ function freshStats(): Stats {
     treatsGiven: 0,
     honks: 0,
     danComplaints: 0,
+    saunaSecs: 0,
   };
 }
 

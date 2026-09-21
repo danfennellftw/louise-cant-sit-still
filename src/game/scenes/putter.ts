@@ -1,5 +1,5 @@
 import { Engine, Scene, W, H, rr } from '../engine';
-import { bgStore, bgSpa, bgBedroom, bgKitchen } from '../art';
+import { bgStore, bgSpa, bgBedroom, bgKitchen, bgGarage } from '../art';
 import { sprites, drawLouise, drawDog, drawDan, faceInCircle, drawShadow } from '../sprites';
 import { Button, tapButtons, font, drawMeter, drawPanel, headline, wrapText } from '../ui';
 
@@ -31,6 +31,7 @@ const CARDS: CardInfo[] = [
   { id: 'skincare', name: '5-Step Skincare', place: 'the bottle cabinet', color: '#4a6fa5' },
   { id: 'kcab', name: 'Organize Kitchen', place: 'cabinets, condo kitchen', color: '#6a8f5f' },
   { id: 'bcab', name: 'Organize Bathroom', place: 'cabinets, NOT the skincare ones', color: '#5f7f8f' },
+  { id: 'sauna', name: 'Garage Sauna', place: 'yes, in the garage', color: '#c47a4a' },
   { id: 'brown', name: 'Dinner Time', place: 'her eggs + tea, then his brown food', color: '#a5713f', required: true },
 ];
 
@@ -72,9 +73,9 @@ export class PutterScene implements Scene {
       const row = Math.floor(i / 2);
       const b = new Button({
         x: 24 + col * 220,
-        y: 148 + row * 88,
+        y: 146 + row * 78,
         w: 212,
-        h: 78,
+        h: 70,
         label: doneList.includes(c.id) ? `${c.name} ✓` : c.name,
         sub: c.place,
         color: doneList.includes(c.id) ? '#9aa38b' : c.color,
@@ -145,6 +146,9 @@ export class PutterScene implements Scene {
         break;
       case 'bcab':
         this.mini = new OrganizeCabinets(this.e, 'bathroom', finish);
+        break;
+      case 'sauna':
+        this.mini = new Sauna(this.e, finish);
         break;
       case 'brown':
         this.mini = new BrownFood(this.e, finish);
@@ -1650,6 +1654,173 @@ class Skincare implements Mini {
       }
       return;
     }
+  }
+}
+
+// ===================================================================
+// Garage Sauna: yes, in the garage. HOLD to endure the heat. Her mind
+// is making tomorrow's list the entire time. That is the joke.
+// ===================================================================
+
+const SAUNA_THOUGHTS = [
+  'tomorrow: gym x2?',
+  'did she answer Nina?',
+  'the pantry could be... better',
+  'leo pee audit, 6 AM',
+  'new deal at TJ Maxx??',
+];
+
+class Sauna implements Mini {
+  private t = 0;
+  private heat = 0;
+  private need = 13;
+  private holding = false;
+  private thought = '';
+  private thoughtT = 0;
+  private nextThought = 2.5;
+  private endT = -1;
+
+  constructor(
+    private e: Engine,
+    private finish: (toast: string) => void,
+  ) {
+    e.toast('The garage sauna. 180 degrees of forced stillness.');
+  }
+
+  update(dt: number): void {
+    this.t += dt;
+    if (this.endT >= 0) {
+      this.endT += dt;
+      if (this.endT > 1.8) {
+        this.e.state.stats.saunaSecs = Math.round(this.need);
+        this.finish('Sauna: survived. Tomorrow: fully planned in there.');
+      }
+      return;
+    }
+    if (this.holding) {
+      this.heat += dt;
+      this.e.bumpChill(dt * 3);
+      if (Math.random() < dt * 1.2) this.e.fx.puff(240 + (Math.random() - 0.5) * 80, 300, 'rgba(255,220,180,0.35)');
+      this.nextThought -= dt;
+      if (this.nextThought <= 0) {
+        this.nextThought = 2.5 + Math.random() * 2;
+        this.thought = SAUNA_THOUGHTS[Math.floor(Math.random() * SAUNA_THOUGHTS.length)];
+        this.thoughtT = 2;
+      }
+      if (this.heat >= 7 && this.heat - dt < 7) {
+        this.e.toast('It is 180 degrees. She is making a list.');
+      }
+      if (this.heat >= this.need) {
+        this.endT = 0;
+        this.e.fx.confetti(240, 350, 30);
+      }
+    } else if (this.heat > 0 && Math.random() < dt * 0.4) {
+      this.e.toast('She got up to "check one thing". The sauna waits.');
+    }
+    this.thoughtT = Math.max(0, this.thoughtT - dt);
+  }
+
+  draw(g: CanvasRenderingContext2D): void {
+    bgGarage(g);
+    headline(g, 'GARAGE SAUNA', W / 2, 56, 28, '#4a2e33', 'rgba(255,255,255,0.85)');
+    g.font = font(14, 500);
+    g.fillStyle = '#4a2e33';
+    g.textAlign = 'center';
+    g.fillText('press and HOLD to endure the heat (and the thoughts)', W / 2, 90);
+    drawMeter(g, W / 2 - 110, 106, 220, 18, this.heat / this.need, '#c47a4a', `heat ${Math.round((this.heat / this.need) * 100)}%`);
+
+    // the sauna box
+    const sx = 130;
+    const sy = 330;
+    g.fillStyle = '#a9764a';
+    rr(g, sx, sy, 220, 290, 12);
+    g.fill();
+    g.strokeStyle = 'rgba(74,46,51,0.3)';
+    g.lineWidth = 2;
+    for (let i = 1; i < 7; i++) {
+      g.beginPath();
+      g.moveTo(sx + 6, sy + i * 40);
+      g.lineTo(sx + 214, sy + i * 40);
+      g.stroke();
+    }
+    // glass door with Louise inside
+    g.fillStyle = 'rgba(120,90,70,0.9)';
+    rr(g, sx + 60, sy + 40, 100, 210, 10);
+    g.fill();
+    g.fillStyle = 'rgba(200,230,240,0.35)';
+    rr(g, sx + 68, sy + 48, 84, 194, 8);
+    g.fill();
+    faceInCircle(g, sprites.louiseFace, sx + 110, sy + 110, 34, 'rgba(255,255,255,0.6)');
+    // towel wrap under her chin
+    g.fillStyle = '#f6f1e7';
+    rr(g, sx + 82, sy + 140, 56, 40, 12);
+    g.fill();
+    // sweat drops on the glass
+    g.fillStyle = 'rgba(160,210,235,0.8)';
+    for (let i = 0; i < 4; i++) {
+      const dy = (this.t * 30 + i * 47) % 170;
+      g.beginPath();
+      g.ellipse(sx + 76 + i * 20, sy + 60 + dy, 3, 5, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+    // heat shimmer above the box
+    if (this.holding) {
+      g.strokeStyle = 'rgba(255,180,120,0.5)';
+      g.lineWidth = 3;
+      for (let i = 0; i < 3; i++) {
+        const hy = sy - 12 - ((this.t * 34 + i * 26) % 70);
+        g.beginPath();
+        g.moveTo(sx + 60 + i * 50, hy);
+        g.quadraticCurveTo(sx + 68 + i * 50, hy - 10, sx + 60 + i * 50, hy - 20);
+        g.stroke();
+      }
+    }
+    // thermometer prop
+    g.fillStyle = '#f6f1e7';
+    rr(g, sx + 174, sy + 50, 16, 60, 8);
+    g.fill();
+    g.fillStyle = '#c0392b';
+    rr(g, sx + 179, sy + 58 + (1 - this.heat / this.need) * 30, 6, 46 - (1 - this.heat / this.need) * 30, 3);
+    g.fill();
+
+    // intrusive planning thoughts
+    if (this.thoughtT > 0 && this.endT < 0) {
+      const a = Math.min(1, this.thoughtT / 0.3);
+      g.globalAlpha = a;
+      g.fillStyle = 'rgba(255,255,255,0.95)';
+      rr(g, W / 2 - 90, 250, 180, 40, 18);
+      g.fill();
+      g.fillStyle = '#4a2e33';
+      g.font = font(13, 500);
+      g.textBaseline = 'middle';
+      g.fillText(this.thought, W / 2, 271, 164);
+      g.globalAlpha = 1;
+    }
+
+    if (this.holding && this.endT < 0) {
+      g.fillStyle = 'rgba(196,122,74,0.85)';
+      rr(g, W / 2 - 70, 650, 140, 34, 17);
+      g.fill();
+      g.fillStyle = '#fff';
+      g.font = font(14);
+      g.textBaseline = 'middle';
+      g.fillText('enduring...', W / 2, 667);
+    }
+    if (this.endT >= 0) headline(g, 'FULLY STEAMED', W / 2, 690, 30, '#fff3dd');
+
+    // dogs refusing to come in (it is warm and suspicious)
+    drawDog(g, 'mochi', 420, 700, 74, this.t);
+    g.font = font(11, 500);
+    g.fillStyle = 'rgba(74,46,51,0.75)';
+    g.fillText('mochi: hard pass', 420, 720);
+  }
+
+  down(): void {
+    this.holding = true;
+  }
+
+  up(): void {
+    this.holding = false;
   }
 }
 

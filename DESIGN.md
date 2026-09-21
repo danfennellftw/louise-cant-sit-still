@@ -14,9 +14,11 @@ day, playable in ~5 minutes on a phone with one restless thumb.
 2. **Gym** — pick Shredz (Ladera Ranch), Crunch (San Clemente), or
    EOS Fitness (Rancho Santa Margarita); alternating-tap reps; gym hopping
    is offered and encouraged.
-3. **Work** — the Sitting Olympics at her desk (photo-accurate set: posters,
-   mic arm, pink-city monitor, L mug, blue LED glow). Clear pings; resist —
-   or gloriously take — sudden urges to go do literally anything else.
+3. **Work** — the Sitting Olympics in the SHARED office: Louise's desk and
+   Dan's desk in the same room (photo-accurate set: posters, mic arm,
+   pink-city monitor, L mug, blue LED glow). Dan stays locked in at his
+   desk while she fidgets; when she caves to an urge, he does not look up
+   ("have fun."). Clear pings; resist — or gloriously take — sudden urges.
 4. **The Puttering Hours** — hub of afternoon micro-games (15–40s each);
    finish 5 including the mandatory **Brown Food Dinner** for Dan:
    TJ Maxx / Marshall's deal hunts, Nike Shoe Dash (Leo steals a shoe —
@@ -25,7 +27,9 @@ day, playable in ~5 minutes on a phone with one restless thumb.
    everywhere, mystery bottles get re-shelved — cabinet organizing is
    self-care), massage (whack-a-knot), make the bed (dogs sabotage round
    two), Organize Kitchen Cabinets and Organize Bathroom Cabinets
-   (sort-to-shelf minis; Dan's shelf holds one deodorant), Nina call,
+   (sort-to-shelf minis; Dan's shelf holds one deodorant), the Garage
+   Sauna (yes, in the garage — hold to endure the heat while planning
+   thoughts intrude), Nina call,
    awkward AI-friend attempt. No jazz beat — "jazz" in the brief just
    meant "other things" (per Dan). The mandatory Dinner Time beat is
    three courses: HER eggs (Dan complains about the smell, lovingly),

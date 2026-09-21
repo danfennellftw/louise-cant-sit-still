@@ -214,7 +214,7 @@ await shot('07-putter-hub');
 async function openCard(idx) {
   const col = idx % 2;
   const row = Math.floor(idx / 2);
-  await click(24 + col * 220 + 106, 148 + row * 88 + 39);
+  await click(24 + col * 220 + 106, 146 + row * 78 + 35);
   await page.waitForTimeout(300);
 }
 
@@ -289,8 +289,23 @@ while ((await g(`e.scene['mini'] !== null`)) && guard++ < 40) {
 }
 log('kitchen cabinets organized');
 
-// --- dinner time (card 11): her eggs, her tea, his brown food
+// --- garage sauna (card 11): hold to endure
 await openCard(11);
+await shot('08c-sauna');
+{
+  const [hx, hy] = await toClient(240, 450);
+  await page.mouse.move(hx, hy);
+  await page.mouse.down();
+  guard = 0;
+  while ((await g(`e.scene['mini'] !== null`)) && guard++ < 80) {
+    await page.waitForTimeout(300);
+  }
+  await page.mouse.up();
+}
+log('sauna endured');
+
+// --- dinner time (card 12): her eggs, her tea, his brown food
+await openCard(12);
 await shot('09-brownfood');
 guard = 0;
 while ((await g(`e.scene['mini'] !== null`)) && guard++ < 600) {
