@@ -21,7 +21,7 @@ export interface Stats {
   waves: number;
   spinScore: number;
   putterDone: string[];
-  jazzGrooves: number;
+  skincareSteps: number;
   videosWatched: number;
 }
 
@@ -49,7 +49,7 @@ function freshStats(): Stats {
     waves: 0,
     spinScore: 0,
     putterDone: [],
-    jazzGrooves: 0,
+    skincareSteps: 0,
     videosWatched: 0,
   };
 }

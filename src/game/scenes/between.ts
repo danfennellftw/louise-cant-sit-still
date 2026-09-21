@@ -9,7 +9,7 @@ const LORE = [
   'She just smelled a candle store from 400 yards. Gift confirmed.',
   'Pee pads: restocked. Hope: eternal.',
   'She is walking 4% faster than strictly necessary.',
-  'Jazz is playing in her head. It is her jazz era.',
+  'The skincare cabinet has 41 bottles. All essential.',
 ];
 
 /**

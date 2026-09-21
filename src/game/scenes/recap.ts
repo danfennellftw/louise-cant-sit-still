@@ -57,7 +57,7 @@ export class RecapScene implements Scene {
       ['facial completed', `${s.facialPct}%`],
       ['dinner brownness', `${s.brownPct}%`],
       ['waves returned by classmates', `0 of ${s.waves}`],
-      ['jazz grooves landed', `${s.jazzGrooves}`],
+      ['skincare steps completed', `${s.skincareSteps} of 5`],
       ['cuddles', `${s.cuddles}`],
       ['spontaneous laps', `${s.zoomies}`],
       ['spin score', `${s.spinScore}`],

@@ -6,7 +6,7 @@ import { font, headline } from '../ui';
 const VIDEOS = [
   'Top 10 Yorkie Crimes (compilation)',
   'POV: you have 3 gym memberships',
-  'Jazz for Dogs — 10 HOURS',
+  'Deep Sleep Music for Dogs — 10 HOURS',
   'How To Sit Still (tutorial, 4 min)',
 ];
 

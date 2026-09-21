@@ -19,9 +19,11 @@ day, playable in ~5 minutes on a phone with one restless thumb.
    finish 5 including the mandatory **Brown Food Dinner** for Dan:
    TJ Maxx / Marshall's deal hunts, Nike Shoe Dash (Leo steals a shoe —
    his one scripted crime per day), vampire facial (step 6 of her 5-step
-   skincare routine; hold still; she won't), massage (whack-a-knot),
-   make the bed (dogs sabotage round two), Nina call, awkward AI-friend
-   attempt, Jazz (her jazz era — rhythm-ring vinyl; venue TBD per Dan).
+   skincare routine; hold still; she won't), 5-Step Skincare (bottles
+   everywhere, mystery bottles get re-shelved — cabinet organizing is
+   self-care), massage (whack-a-knot), make the bed (dogs sabotage round
+   two), Nina call, awkward AI-friend attempt. No jazz beat — "jazz" in
+   the brief just meant "other things" (per Dan).
 5. **Grit Cycle, Dana Point — always the last outing.** Rhythm spin finale;
    she waves at classmates, they never wave back, she finishes anyway.
    She always finishes.

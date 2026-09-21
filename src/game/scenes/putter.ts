@@ -28,7 +28,7 @@ const CARDS: CardInfo[] = [
   { id: 'bed', name: 'Make the Bed', place: 'back home (again)', color: '#8e7cc3' },
   { id: 'nina', name: 'Call Nina', place: 'facetime', color: '#f8a5c2' },
   { id: 'ai', name: 'Make an AI Friend', place: 'the internet', color: '#7ed6df' },
-  { id: 'jazz', name: 'Jazz', place: 'her jazz era (venue TBD, ask Dan)', color: '#4a6fa5' },
+  { id: 'skincare', name: '5-Step Skincare', place: 'the bottle cabinet', color: '#4a6fa5' },
   { id: 'brown', name: 'Brown Food Dinner', place: 'the condo kitchen', color: '#a5713f', required: true },
 ];
 
@@ -135,8 +135,8 @@ export class PutterScene implements Scene {
       case 'ai':
         this.mini = new Dialogue(this.e, aiScript(), 'bot', finish);
         break;
-      case 'jazz':
-        this.mini = new Jazz(this.e, finish);
+      case 'skincare':
+        this.mini = new Skincare(this.e, finish);
         break;
       case 'brown':
         this.mini = new BrownFood(this.e, finish);
@@ -1274,21 +1274,53 @@ class BrownFood implements Mini {
 }
 
 // ===================================================================
-// Jazz: her jazz era. Tap the vinyl when the pulse ring lands on it.
+// 5-Step Skincare: bottles everywhere. Do the steps in order, then
+// re-shelve the mystery bottles. Cabinet organizing is self-care.
 // ===================================================================
 
-class Jazz implements Mini {
+interface Bottle {
+  x: number;
+  y: number;
+  step: number; // 1..5, or 0 for mystery
+  color: string;
+  shape: number;
+  done: boolean;
+}
+
+const STEP_NAMES = ['cleanser', 'toner', 'serum', 'moisturizer', 'SPF'];
+
+class Skincare implements Mini {
   private t = 0;
-  private grooves = 0;
-  private need = 10;
-  private beat = 0; // 0..1 loop
+  private step = 1;
+  private phase: 'steps' | 'organize' = 'steps';
+  private bottles: Bottle[] = [];
   private endT = -1;
 
   constructor(
     private e: Engine,
     private finish: (toast: string) => void,
   ) {
-    e.toast('She put on jazz. Everyone must know about her jazz era.');
+    e.toast('The 5-step routine. There are 11 bottles. This is normal.');
+    const colors = ['#f4a7b0', '#7ed6df', '#e6a23c', '#8e7cc3', '#5b8c6e', '#c0605e', '#4a6fa5', '#d3a7e8'];
+    const spots: [number, number][] = [];
+    for (let i = 0; i < 11; i++) {
+      spots.push([80 + (i % 4) * 108, 320 + Math.floor(i / 4) * 130]);
+    }
+    // shuffle spots
+    for (let i = spots.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [spots[i], spots[j]] = [spots[j], spots[i]];
+    }
+    for (let i = 0; i < 11; i++) {
+      this.bottles.push({
+        x: spots[i][0],
+        y: spots[i][1],
+        step: i < 5 ? i + 1 : 0,
+        color: colors[i % colors.length],
+        shape: i % 3,
+        done: false,
+      });
+    }
   }
 
   update(dt: number): void {
@@ -1296,105 +1328,117 @@ class Jazz implements Mini {
     if (this.endT >= 0) {
       this.endT += dt;
       if (this.endT > 1.8) {
-        this.e.state.stats.jazzGrooves = this.grooves;
-        this.finish('Jazz: appreciated. Neighbors: informed.');
+        this.e.state.stats.skincareSteps = 5;
+        this.finish('Glowing. Dewy. The cabinet is alphabetized.');
       }
-      return;
     }
-    this.beat = (this.beat + dt / 0.95) % 1;
-  }
-
-  private ringR(): number {
-    return 130 - this.beat * 95; // shrinks toward the record (r ~ 35)
   }
 
   draw(g: CanvasRenderingContext2D): void {
-    bgCondoLiving(g, this.t);
-    // evening tint
-    g.fillStyle = 'rgba(43,45,94,0.45)';
-    g.fillRect(0, 0, W, H);
-
-    headline(g, 'JAZZ', W / 2, 56, 34, '#fff3dd', 'rgba(30,30,60,0.8)');
+    bgSpa(g, this.t);
+    headline(g, '5-STEP SKINCARE', W / 2, 56, 27, '#4a5a52', 'rgba(255,255,255,0.85)');
     g.font = font(14, 500);
-    g.fillStyle = 'rgba(255,243,221,0.9)';
+    g.fillStyle = '#4a5a52';
     g.textAlign = 'center';
-    g.fillText('tap the record when the ring lands on it', W / 2, 92);
-    drawMeter(g, W / 2 - 100, 108, 200, 16, this.grooves / this.need, '#4a6fa5', `groove ${this.grooves} / ${this.need}`);
+    if (this.phase === 'steps') {
+      g.fillText(`step ${this.step} of 5: tap the ${STEP_NAMES[this.step - 1]}`, W / 2, 92);
+      g.fillText('(numbered bottles. ignore the mystery ones. for now.)', W / 2, 114);
+    } else {
+      const left = this.bottles.filter((b) => b.step === 0 && !b.done).length;
+      g.fillText(`routine done — now re-shelve the ${left} mystery bottles`, W / 2, 92);
+      g.fillText('(organizing the cabinet IS the treat)', W / 2, 114);
+    }
+    drawMeter(g, W / 2 - 100, 130, 200, 16, (this.step - 1) / 5, '#4a6fa5', this.phase === 'steps' ? `${this.step - 1} / 5 steps` : 'routine complete');
 
-    // record player
-    const cx = W / 2;
-    const cy = 300;
-    g.fillStyle = '#8a6b52';
-    rr(g, cx - 110, cy + 50, 220, 26, 8);
+    // bathroom counter
+    g.fillStyle = '#e8ddc8';
+    rr(g, 40, 180, W - 80, 24, 8);
     g.fill();
+
+    for (const b of this.bottles) {
+      if (b.done) continue;
+      const bob = Math.sin(this.t * 2 + b.x) * 2;
+      this.drawBottle(g, b, bob);
+    }
+
+    drawLouise(g, W / 2, 740, 150, this.t);
+    if (this.endT >= 0) headline(g, 'DEWY.', W / 2, 250, 34, '#fff3dd');
+  }
+
+  private drawBottle(g: CanvasRenderingContext2D, b: Bottle, bob: number): void {
+    const x = b.x;
+    const y = b.y + bob;
     g.save();
-    g.translate(cx, cy);
-    g.rotate(this.t * 2.4);
-    g.fillStyle = '#1d1d24';
-    g.beginPath();
-    g.arc(0, 0, 62, 0, Math.PI * 2);
-    g.fill();
-    g.strokeStyle = 'rgba(255,255,255,0.14)';
-    g.lineWidth = 2;
-    for (const r of [50, 40, 30]) {
+    drawShadow(g, x, y + 34, 44);
+    g.fillStyle = b.color;
+    if (b.shape === 0) {
+      rr(g, x - 18, y - 28, 36, 60, 10);
+      g.fill();
+      // pump
+      g.fillStyle = '#4a4a55';
+      g.fillRect(x - 4, y - 44, 8, 18);
+      g.fillRect(x - 4, y - 44, 16, 7);
+    } else if (b.shape === 1) {
       g.beginPath();
-      g.arc(0, 0, r, 0, Math.PI * 2);
-      g.stroke();
+      g.ellipse(x, y + 4, 22, 28, 0, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#4a4a55';
+      rr(g, x - 8, y - 34, 16, 12, 4);
+      g.fill();
+    } else {
+      rr(g, x - 14, y - 34, 28, 66, 14);
+      g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.45)';
+      rr(g, x - 14, y - 34, 28, 20, 14);
+      g.fill();
     }
-    g.fillStyle = '#4a6fa5';
-    g.beginPath();
-    g.arc(0, 0, 18, 0, Math.PI * 2);
+    // label
+    g.fillStyle = 'rgba(255,255,255,0.92)';
+    rr(g, x - 13, y - 6, 26, 22, 5);
     g.fill();
+    g.fillStyle = b.step > 0 ? '#4a2e33' : '#8a8794';
+    g.font = font(15);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(b.step > 0 ? String(b.step) : '?', x, y + 5);
     g.restore();
-
-    // pulse ring
-    if (this.endT < 0) {
-      const r = this.ringR();
-      const inZone = r < 78 && r > 44;
-      g.strokeStyle = inZone ? '#fff3b0' : 'rgba(126,214,223,0.8)';
-      g.lineWidth = inZone ? 6 : 4;
-      g.beginPath();
-      g.arc(cx, cy, r, 0, Math.PI * 2);
-      g.stroke();
-    }
-
-    // floating notes
-    for (let i = 0; i < 4; i++) {
-      const nx = cx - 140 + i * 90 + Math.sin(this.t * 1.4 + i * 2) * 12;
-      const ny = 170 - ((this.t * 30 + i * 47) % 90);
-      g.fillStyle = `rgba(255,243,221,${0.3 + 0.4 * Math.sin(this.t + i)})`;
-      g.font = font(22);
-      g.fillText(i % 2 ? '♪' : '♫', nx, ny);
-    }
-
-    // the household, swaying in 6/8
-    const sway = Math.sin(this.t * 2.2) * 0.08;
-    drawLouise(g, 150, 640, 205, this.t, { rot: sway });
-    drawDog(g, 'mochi', 300, 655, 88, this.t, { rot: -sway * 1.4 });
-    drawDog(g, 'leo', 390, 660, 82, this.t, { rot: sway * 1.6, flip: true });
-
-    if (this.endT >= 0) headline(g, 'SO SMOOTH', W / 2, 460, 30, '#fff3dd');
   }
 
   down(x: number, y: number): void {
     if (this.endT >= 0) return;
-    const cx = W / 2;
-    const cy = 300;
-    if (Math.hypot(x - cx, y - cy) < 150) {
-      const r = this.ringR();
-      if (r < 78 && r > 44) {
-        this.grooves++;
-        this.e.bumpChill(3);
-        this.e.fx.sparkle(cx, cy, '#7ed6df');
-        this.e.fx.hearts(150, 480, 1);
-        if (this.grooves >= this.need) {
-          this.endT = 0;
-          this.e.fx.confetti(cx, cy, 35);
+    for (const b of this.bottles) {
+      if (b.done || Math.abs(x - b.x) > 34 || Math.abs(y - b.y) > 48) continue;
+      if (this.phase === 'steps') {
+        if (b.step === this.step) {
+          b.done = true;
+          this.e.state.stats.skincareSteps = this.step;
+          this.step++;
+          this.e.bumpChill(3);
+          this.e.fx.sparkle(b.x, b.y, '#d3a7e8');
+          if (this.step > 5) {
+            this.phase = 'organize';
+            this.e.toast('Face: complete. Now the cabinet. Obviously.');
+          }
+        } else if (b.step === 0) {
+          this.e.toast(['Unlabeled. Vintage unknown. Do not risk it.', 'That one might be from 2022. Respect it.'][Math.floor(Math.random() * 2)]);
+          this.e.fx.puff(b.x, b.y, 'rgba(211,167,232,0.6)');
+        } else {
+          this.e.toast(`Order matters. Step ${this.step} is ${STEP_NAMES[this.step - 1]}.`);
+          this.e.fx.puff(b.x, b.y, 'rgba(255,120,120,0.5)');
         }
-      } else {
-        this.e.fx.puff(x, y, 'rgba(126,214,223,0.5)');
-        this.e.toast(r >= 78 ? 'Early. Feel the swing, not the clock.' : 'Late. The record forgives.');
+        return;
       }
+      // organize phase: shelve mystery bottles
+      if (b.step === 0) {
+        b.done = true;
+        this.e.bumpChill(2);
+        this.e.fx.sparkle(b.x, b.y, '#bff0c8');
+        if (this.bottles.every((q) => q.done || q.step > 0)) {
+          this.endT = 0;
+          this.e.fx.confetti(W / 2, 400, 30);
+        }
+      }
+      return;
     }
   }
 }
