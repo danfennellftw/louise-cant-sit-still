@@ -8,7 +8,9 @@ import { GymScene } from './game/scenes/gym';
 import { WorkScene } from './game/scenes/work';
 import { PutterScene } from './game/scenes/putter';
 import { SpinScene } from './game/scenes/spin';
+import { WindDownScene } from './game/scenes/winddown';
 import { RecapScene } from './game/scenes/recap';
+import { DayMapScene } from './game/scenes/daymap';
 
 async function boot(): Promise<void> {
   const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -29,7 +31,9 @@ async function boot(): Promise<void> {
   engine.add('work', new WorkScene(engine));
   engine.add('putter', new PutterScene(engine));
   engine.add('spin', new SpinScene(engine));
+  engine.add('winddown', new WindDownScene(engine));
   engine.add('recap', new RecapScene(engine));
+  engine.add('daymap', new DayMapScene(engine));
   engine.goNow('title');
 }
 

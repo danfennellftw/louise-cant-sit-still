@@ -9,21 +9,30 @@ day, playable in ~5 minutes on a phone with one restless thumb.
    feed Mochi and Leo evenly, calm Leo's bark fit (he found a leaf), scrub
    Mochi's carpet accident, defend the barstools from Leo's leg-lifts, then
    Poop Patrol downstairs.
-2. **Gym** — pick Shredz (Ladera Ranch), Crunch (San Clemente), or Eow (RSM);
-   alternating-tap reps; gym hopping is offered and encouraged.
+2. **Gym** — pick Shredz (Ladera Ranch), Crunch (San Clemente), or
+   EOS Fitness (Rancho Santa Margarita); alternating-tap reps; gym hopping
+   is offered and encouraged.
 3. **Work** — the Sitting Olympics at her desk (photo-accurate set: posters,
    mic arm, pink-city monitor, L mug, blue LED glow). Clear pings; resist —
    or gloriously take — sudden urges to go do literally anything else.
 4. **The Puttering Hours** — hub of afternoon micro-games (15–40s each);
    finish 5 including the mandatory **Brown Food Dinner** for Dan:
    TJ Maxx / Marshall's deal hunts, Nike Shoe Dash (Leo steals a shoe —
-   his one scripted crime per day), vampire facial (hold still; she won't),
-   massage (whack-a-knot), make the bed (dogs sabotage round two),
-   Nina call, awkward AI-friend attempt.
-5. **Grit Cycle, Dana Point — always last.** Rhythm spin finale; she waves at
-   classmates, they never wave back, she finishes anyway. She always finishes.
+   his one scripted crime per day), vampire facial (step 6 of her 5-step
+   skincare routine; hold still; she won't), massage (whack-a-knot),
+   make the bed (dogs sabotage round two), Nina call, awkward AI-friend
+   attempt, Jazz (her jazz era — rhythm-ring vinyl; venue TBD per Dan).
+5. **Grit Cycle, Dana Point — always the last outing.** Rhythm spin finale;
+   she waves at classmates, they never wave back, she finishes anyway.
+   She always finishes.
+6. **Wind-down YouTube** — couch closer with Dan and the pups; the sit-still
+   meter clocks out; she finally sits still (asleep, but it counts).
 
 Then a recap screen with the day's receipts.
+
+A **Day Map** (timeline chapter select) is reachable from the title screen
+and the MAP pill in the HUD; it shows current/completed beats and allows
+jumping to any chapter — chaos is non-linear.
 
 ## Tone rules
 

@@ -139,6 +139,7 @@ export class MorningScene implements Scene {
       case 'done':
         this.doneT += dt;
         if (this.doneT > 2.2) {
+          if (!this.e.state.chaptersDone.includes('morning')) this.e.state.chaptersDone.push('morning');
           this.e.state.nextStop = { label: 'Gym o clock', scene: 'gym', phase: 'morning' };
           this.e.go('between');
         }

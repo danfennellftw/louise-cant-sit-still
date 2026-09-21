@@ -13,7 +13,7 @@ interface GymInfo {
 const GYMS: GymInfo[] = [
   { id: 'shredz', name: 'SHREDZ', place: 'Ladera Ranch', accent: '#ff5f6d' },
   { id: 'crunch', name: 'CRUNCH', place: 'San Clemente', accent: '#7ed6df' },
-  { id: 'eow', name: 'EOW', place: 'Rancho Santa Margarita', accent: '#f8a5c2' },
+  { id: 'eos', name: 'EOS FITNESS', place: 'Rancho Santa Margarita', accent: '#f8a5c2' },
 ];
 
 /**
@@ -72,7 +72,11 @@ export class GymScene implements Scene {
     this.lift = 0;
     this.target = 16;
     this.btns = [];
-    this.e.toast(`${gy.name}. She knows everyone here. Everyone.`);
+    this.e.toast(
+      gy.id === 'shredz'
+        ? 'SHREDZ. The sauna guys are mid-podcast. She waves anyway.'
+        : `${gy.name}. She knows everyone here. Everyone.`,
+    );
   }
 
   private startHop(): void {
@@ -110,6 +114,7 @@ export class GymScene implements Scene {
         color: '#5b8c6e',
         onTap: () => {
           this.e.bumpChill(30);
+          if (!this.e.state.chaptersDone.includes('gym')) this.e.state.chaptersDone.push('gym');
           this.e.state.nextStop = { label: 'Work — the sitting Olympics', scene: 'work', phase: 'noon' };
           this.e.go('between');
         },

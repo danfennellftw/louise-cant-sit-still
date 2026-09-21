@@ -19,9 +19,9 @@ export class TitleScene implements Scene {
     this.btns = [
       new Button({
         x: W / 2 - 135,
-        y: 630,
+        y: 616,
         w: 270,
-        h: 66,
+        h: 64,
         label: 'START THE DAY',
         sub: 'she is already up',
         color: '#ff5f6d',
@@ -29,6 +29,18 @@ export class TitleScene implements Scene {
         onTap: () => {
           this.e.state.nextStop = { label: 'Home — the pups are waiting', scene: 'morning', phase: 'morning' };
           this.e.go('between');
+        },
+      }),
+      new Button({
+        x: W / 2 - 95,
+        y: 690,
+        w: 190,
+        h: 46,
+        label: 'DAY MAP',
+        color: '#4a6fa5',
+        onTap: () => {
+          this.e.state.resumeScene = 'title';
+          this.e.go('daymap');
         },
       }),
     ];
@@ -70,8 +82,7 @@ export class TitleScene implements Scene {
     g.font = font(13, 500);
     g.fillStyle = 'rgba(255,243,221,0.85)';
     g.textAlign = 'center';
-    g.fillText('a loving roast, made by Dan', W / 2, 726);
-    g.fillText('best played with one restless thumb', W / 2, 746);
+    g.fillText('a loving roast, made by Dan — best played with one restless thumb', W / 2, 762);
 
     for (const b of this.btns) b.draw(g, this.t);
   }

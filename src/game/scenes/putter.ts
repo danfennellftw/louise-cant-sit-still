@@ -1,5 +1,5 @@
 import { Engine, Scene, W, H, rr } from '../engine';
-import { bgStore, bgSpa, bgBedroom, bgKitchen } from '../art';
+import { bgStore, bgSpa, bgBedroom, bgKitchen, bgCondoLiving } from '../art';
 import { sprites, drawLouise, drawDog, drawDan, faceInCircle, drawShadow } from '../sprites';
 import { Button, tapButtons, font, drawMeter, drawPanel, headline, wrapText } from '../ui';
 
@@ -23,11 +23,12 @@ const CARDS: CardInfo[] = [
   { id: 'tjmaxx', name: 'Deal Hunt', place: 'TJ Maxx', color: '#e74c3c' },
   { id: 'marshalls', name: 'Deal Hunt II', place: "Marshall's", color: '#2980b9' },
   { id: 'nike', name: 'Shoe Dash', place: 'the mall — Nike', color: '#ff8c42' },
-  { id: 'facial', name: 'Vampire Facial', place: 'med spa', color: '#c0605e' },
+  { id: 'facial', name: 'Vampire Facial', place: 'medspa — step 6 of her 5-step routine', color: '#c0605e' },
   { id: 'massage', name: 'Massage', place: 'spa room 3', color: '#5b8c6e' },
   { id: 'bed', name: 'Make the Bed', place: 'back home (again)', color: '#8e7cc3' },
   { id: 'nina', name: 'Call Nina', place: 'facetime', color: '#f8a5c2' },
   { id: 'ai', name: 'Make an AI Friend', place: 'the internet', color: '#7ed6df' },
+  { id: 'jazz', name: 'Jazz', place: 'her jazz era (venue TBD, ask Dan)', color: '#4a6fa5' },
   { id: 'brown', name: 'Brown Food Dinner', place: 'the condo kitchen', color: '#a5713f', required: true },
 ];
 
@@ -91,6 +92,7 @@ export class PutterScene implements Scene {
       color: unlocked ? '#ff5f6d' : '#8a8794',
       pulse: unlocked,
       onTap: () => {
+        if (!this.e.state.chaptersDone.includes('putter')) this.e.state.chaptersDone.push('putter');
         this.e.state.nextStop = { label: 'Grit Cycle, Dana Point', scene: 'spin', phase: 'evening' };
         this.e.go('between');
       },
@@ -132,6 +134,9 @@ export class PutterScene implements Scene {
         break;
       case 'ai':
         this.mini = new Dialogue(this.e, aiScript(), 'bot', finish);
+        break;
+      case 'jazz':
+        this.mini = new Jazz(this.e, finish);
         break;
       case 'brown':
         this.mini = new BrownFood(this.e, finish);
@@ -478,7 +483,7 @@ class HoldStill implements Mini {
     private e: Engine,
     private finish: (toast: string) => void,
   ) {
-    e.toast('Vampire facial. Rule one: DO NOT MOVE.');
+    e.toast('Steps 1-5 were bottles. This is step 6: vampire facial. DO NOT MOVE.');
   }
 
   update(dt: number): void {
@@ -1263,6 +1268,132 @@ class BrownFood implements Mini {
       if (this.flips >= this.need) {
         this.endT = 0;
         this.e.fx.confetti(240, 420, 40);
+      }
+    }
+  }
+}
+
+// ===================================================================
+// Jazz: her jazz era. Tap the vinyl when the pulse ring lands on it.
+// ===================================================================
+
+class Jazz implements Mini {
+  private t = 0;
+  private grooves = 0;
+  private need = 10;
+  private beat = 0; // 0..1 loop
+  private endT = -1;
+
+  constructor(
+    private e: Engine,
+    private finish: (toast: string) => void,
+  ) {
+    e.toast('She put on jazz. Everyone must know about her jazz era.');
+  }
+
+  update(dt: number): void {
+    this.t += dt;
+    if (this.endT >= 0) {
+      this.endT += dt;
+      if (this.endT > 1.8) {
+        this.e.state.stats.jazzGrooves = this.grooves;
+        this.finish('Jazz: appreciated. Neighbors: informed.');
+      }
+      return;
+    }
+    this.beat = (this.beat + dt / 0.95) % 1;
+  }
+
+  private ringR(): number {
+    return 130 - this.beat * 95; // shrinks toward the record (r ~ 35)
+  }
+
+  draw(g: CanvasRenderingContext2D): void {
+    bgCondoLiving(g, this.t);
+    // evening tint
+    g.fillStyle = 'rgba(43,45,94,0.45)';
+    g.fillRect(0, 0, W, H);
+
+    headline(g, 'JAZZ', W / 2, 56, 34, '#fff3dd', 'rgba(30,30,60,0.8)');
+    g.font = font(14, 500);
+    g.fillStyle = 'rgba(255,243,221,0.9)';
+    g.textAlign = 'center';
+    g.fillText('tap the record when the ring lands on it', W / 2, 92);
+    drawMeter(g, W / 2 - 100, 108, 200, 16, this.grooves / this.need, '#4a6fa5', `groove ${this.grooves} / ${this.need}`);
+
+    // record player
+    const cx = W / 2;
+    const cy = 300;
+    g.fillStyle = '#8a6b52';
+    rr(g, cx - 110, cy + 50, 220, 26, 8);
+    g.fill();
+    g.save();
+    g.translate(cx, cy);
+    g.rotate(this.t * 2.4);
+    g.fillStyle = '#1d1d24';
+    g.beginPath();
+    g.arc(0, 0, 62, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.14)';
+    g.lineWidth = 2;
+    for (const r of [50, 40, 30]) {
+      g.beginPath();
+      g.arc(0, 0, r, 0, Math.PI * 2);
+      g.stroke();
+    }
+    g.fillStyle = '#4a6fa5';
+    g.beginPath();
+    g.arc(0, 0, 18, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+
+    // pulse ring
+    if (this.endT < 0) {
+      const r = this.ringR();
+      const inZone = r < 78 && r > 44;
+      g.strokeStyle = inZone ? '#fff3b0' : 'rgba(126,214,223,0.8)';
+      g.lineWidth = inZone ? 6 : 4;
+      g.beginPath();
+      g.arc(cx, cy, r, 0, Math.PI * 2);
+      g.stroke();
+    }
+
+    // floating notes
+    for (let i = 0; i < 4; i++) {
+      const nx = cx - 140 + i * 90 + Math.sin(this.t * 1.4 + i * 2) * 12;
+      const ny = 170 - ((this.t * 30 + i * 47) % 90);
+      g.fillStyle = `rgba(255,243,221,${0.3 + 0.4 * Math.sin(this.t + i)})`;
+      g.font = font(22);
+      g.fillText(i % 2 ? '♪' : '♫', nx, ny);
+    }
+
+    // the household, swaying in 6/8
+    const sway = Math.sin(this.t * 2.2) * 0.08;
+    drawLouise(g, 150, 640, 205, this.t, { rot: sway });
+    drawDog(g, 'mochi', 300, 655, 88, this.t, { rot: -sway * 1.4 });
+    drawDog(g, 'leo', 390, 660, 82, this.t, { rot: sway * 1.6, flip: true });
+
+    if (this.endT >= 0) headline(g, 'SO SMOOTH', W / 2, 460, 30, '#fff3dd');
+  }
+
+  down(x: number, y: number): void {
+    if (this.endT >= 0) return;
+    const cx = W / 2;
+    const cy = 300;
+    if (Math.hypot(x - cx, y - cy) < 150) {
+      const r = this.ringR();
+      if (r < 78 && r > 44) {
+        this.grooves++;
+        this.e.bumpChill(3);
+        this.e.fx.sparkle(cx, cy, '#7ed6df');
+        this.e.fx.hearts(150, 480, 1);
+        if (this.grooves >= this.need) {
+          this.endT = 0;
+          this.e.fx.confetti(cx, cy, 35);
+        }
+      } else {
+        this.e.fx.puff(x, y, 'rgba(126,214,223,0.5)');
+        this.e.toast(r >= 78 ? 'Early. Feel the swing, not the clock.' : 'Late. The record forgives.');
       }
     }
   }

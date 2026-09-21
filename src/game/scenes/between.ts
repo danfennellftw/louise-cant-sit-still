@@ -3,6 +3,15 @@ import { bgStreet } from '../art';
 import { drawLouise, drawDog } from '../sprites';
 import { Button, tapButtons, font, headline } from '../ui';
 
+const LORE = [
+  'An e-bike whizzes past. Louise rates the rider 7/10.',
+  'Someone at Shredz is doing sauna talk again. She has opinions.',
+  'She just smelled a candle store from 400 yards. Gift confirmed.',
+  'Pee pads: restocked. Hope: eternal.',
+  'She is walking 4% faster than strictly necessary.',
+  'Jazz is playing in her head. It is her jazz era.',
+];
+
 /**
  * Travel beat between stops: Louise power-walks, the pups trot behind.
  * Tapping a dog = cuddle = sit-still meter refill. Never skippable dogs.
@@ -22,6 +31,10 @@ export class BetweenScene implements Scene {
     this.cuddled = { mochi: false, leo: false };
     this.e.showChill = true;
     this.e.chillDrain = 2.5;
+    this.e.state.currentChapter = this.e.state.nextStop.scene;
+    if (Math.random() < 0.6) {
+      this.e.toast(LORE[Math.floor(Math.random() * LORE.length)]);
+    }
     this.btns = [
       new Button({
         x: W / 2 - 120,

@@ -59,6 +59,7 @@ export class WorkScene implements Scene {
     if (this.doneT >= 0) {
       this.doneT += dt;
       if (this.doneT > 2.4) {
+        if (!this.e.state.chaptersDone.includes('work')) this.e.state.chaptersDone.push('work');
         this.e.state.nextStop = { label: 'The Puttering Hours', scene: 'putter', phase: 'afternoon' };
         this.e.go('between');
       }

@@ -46,6 +46,7 @@ export class Engine {
 
   private scenes = new Map<string, Scene>();
   private scene: Scene | null = null;
+  sceneName = '';
   private pendingScene = '';
   private fade = 1;
   private fadeDir: -1 | 0 | 1 = -1;
@@ -74,7 +75,15 @@ export class Engine {
       this.px = x;
       this.py = y;
       this.pointerHeld = true;
-      if (this.fade < 0.35 && this.scene?.down) this.scene.down(x, y);
+      if (this.fade < 0.35) {
+        // HUD map button (top-right) opens the day timeline
+        if (this.showChill && x > W - 78 && x < W - 10 && y > 8 && y < 48) {
+          this.state.resumeScene = this.sceneName;
+          this.go('daymap');
+          return;
+        }
+        this.scene?.down?.(x, y);
+      }
     });
     canvas.addEventListener('pointermove', (e) => {
       const [x, y] = pos(e);
@@ -108,6 +117,7 @@ export class Engine {
     const s = this.scenes.get(name);
     if (!s) throw new Error(`unknown scene ${name}`);
     this.scene = s;
+    this.sceneName = name;
     this.fx.clear();
     s.enter();
   }
@@ -223,6 +233,16 @@ export class Engine {
     g.textBaseline = 'alphabetic';
     g.fillText('SIT-STILL METER', bx, y + 12);
     g.restore();
+
+    // map button, top-right
+    g.fillStyle = 'rgba(36,16,23,0.78)';
+    rr(g, W - 78, 12, 64, 30, 15);
+    g.fill();
+    g.fillStyle = '#ffe9d6';
+    g.font = '700 13px Fredoka, system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('MAP', W - 46, 28);
   }
 
   private drawToasts(g: CanvasRenderingContext2D, dt: number): void {

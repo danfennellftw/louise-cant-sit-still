@@ -21,6 +21,8 @@ export interface Stats {
   waves: number;
   spinScore: number;
   putterDone: string[];
+  jazzGrooves: number;
+  videosWatched: number;
 }
 
 function freshStats(): Stats {
@@ -47,6 +49,8 @@ function freshStats(): Stats {
     waves: 0,
     spinScore: 0,
     putterDone: [],
+    jazzGrooves: 0,
+    videosWatched: 0,
   };
 }
 
@@ -57,9 +61,17 @@ export class GameState {
   stats: Stats = freshStats();
   /** config for the travel interstitial */
   nextStop = { label: 'Grit Cycle, Dana Point', scene: 'title', phase: 'morning' as DayPhase };
+  /** chapter scene id currently being played (for the day map) */
+  currentChapter = '';
+  /** chapter scene ids already completed today */
+  chaptersDone: string[] = [];
+  /** where the day map should return to when closed */
+  resumeScene = 'title';
 
   reset(): void {
     this.chill = 70;
     this.stats = freshStats();
+    this.currentChapter = '';
+    this.chaptersDone = [];
   }
 }

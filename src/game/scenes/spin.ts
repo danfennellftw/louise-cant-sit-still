@@ -60,7 +60,9 @@ export class SpinScene implements Scene {
       this.overT += dt;
       if (this.overT > 3) {
         this.e.state.stats.spinScore = this.score;
-        this.e.go('recap');
+        if (!this.e.state.chaptersDone.includes('spin')) this.e.state.chaptersDone.push('spin');
+        this.e.state.nextStop = { label: 'Home — wind-down YouTube', scene: 'winddown', phase: 'night' };
+        this.e.go('between');
       }
       return;
     }

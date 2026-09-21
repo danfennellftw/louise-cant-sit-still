@@ -57,15 +57,17 @@ export class RecapScene implements Scene {
       ['facial completed', `${s.facialPct}%`],
       ['dinner brownness', `${s.brownPct}%`],
       ['waves returned by classmates', `0 of ${s.waves}`],
+      ['jazz grooves landed', `${s.jazzGrooves}`],
       ['cuddles', `${s.cuddles}`],
       ['spontaneous laps', `${s.zoomies}`],
       ['spin score', `${s.spinScore}`],
+      ['wind-down videos', `${s.videosWatched} then sleep`],
     ];
 
-    drawPanel(g, 30, 130, W - 60, 428, 'rgba(255,250,242,0.94)');
+    drawPanel(g, 30, 130, W - 60, 452, 'rgba(255,250,242,0.94)');
     g.textBaseline = 'middle';
     lines.forEach(([label, value], i) => {
-      const y = 160 + i * 31;
+      const y = 156 + i * 28;
       g.font = font(14, 500);
       g.fillStyle = '#6b463c';
       g.textAlign = 'left';
@@ -78,8 +80,8 @@ export class RecapScene implements Scene {
         g.strokeStyle = 'rgba(107,70,60,0.12)';
         g.lineWidth = 1;
         g.beginPath();
-        g.moveTo(52, y + 15);
-        g.lineTo(W - 52, y + 15);
+        g.moveTo(52, y + 14);
+        g.lineTo(W - 52, y + 14);
         g.stroke();
       }
     });
