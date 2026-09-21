@@ -1,5 +1,5 @@
 import { Engine, Scene, W, H, rr } from '../engine';
-import { bgStore, bgSpa, bgBedroom, bgKitchen, bgCondoLiving } from '../art';
+import { bgStore, bgSpa, bgBedroom, bgKitchen } from '../art';
 import { sprites, drawLouise, drawDog, drawDan, faceInCircle, drawShadow } from '../sprites';
 import { Button, tapButtons, font, drawMeter, drawPanel, headline, wrapText } from '../ui';
 
