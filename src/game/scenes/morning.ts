@@ -294,17 +294,17 @@ export class MorningScene implements Scene {
   // ------------------------------------------------------- Leo bark fit
 
   private updateBark(dt: number): void {
-    // Leo shuffles around unless held
-    if (!this.holdingLeo && Math.random() < dt * 1.2) {
-      this.leoTargetX = 90 + Math.random() * (W - 180);
+    // Leo shuffles in small hops so he stays catchable
+    if (!this.holdingLeo && Math.random() < dt * 0.9) {
+      this.leoTargetX = Math.max(90, Math.min(W - 90, this.leoX + (Math.random() - 0.5) * 140));
     }
-    this.leoX += (this.leoTargetX - this.leoX) * Math.min(1, dt * (this.holdingLeo ? 0 : 4));
+    this.leoX += (this.leoTargetX - this.leoX) * Math.min(1, dt * (this.holdingLeo ? 0 : 2));
 
     if (this.holdingLeo) {
       this.calm = Math.min(100, this.calm + dt * 22);
       if (Math.random() < dt * 6) this.e.fx.hearts(this.leoX, 470, 1);
     } else {
-      this.calm = Math.max(0, this.calm - dt * 6);
+      this.calm = Math.max(0, this.calm - dt * 2.5);
       if (Math.random() < dt * 3.2) {
         this.yaps.push({ x: this.leoX + (Math.random() - 0.5) * 90, y: 450 + Math.random() * 60, t: 0 });
       }
@@ -372,12 +372,14 @@ export class MorningScene implements Scene {
   }
 
   private barkDown(x: number, y: number): void {
-    this.holdingLeo = Math.hypot(x - this.leoX, y - 545) < 120;
+    this.holdingLeo = Math.hypot(x - this.leoX, y - 545) < 160;
     if (this.holdingLeo) {
       // taps soothe too, so rapid petting also works
-      this.calm = Math.min(100, this.calm + 6);
+      this.calm = Math.min(100, this.calm + 7);
       this.e.fx.hearts(this.leoX, 500, 2);
     } else {
+      // even a miss helps: soothing voice from across the room
+      this.calm = Math.min(100, this.calm + 2);
       this.e.fx.sparkle(x, y);
     }
   }
