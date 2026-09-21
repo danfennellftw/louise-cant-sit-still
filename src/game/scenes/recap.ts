@@ -58,6 +58,7 @@ export class RecapScene implements Scene {
       ['deals found', `${s.dealsFound}`],
       ['facial completed', `${s.facialPct}%`],
       ['dinner brownness', `${s.brownPct}%`],
+      ['dan smell complaints', `${s.danComplaints} (he stayed)`],
       ['waves returned by classmates', `0 of ${s.waves}`],
       ['skincare steps completed', `${s.skincareSteps} of 5`],
       ['cuddles', `${s.cuddles}`],
@@ -66,15 +67,15 @@ export class RecapScene implements Scene {
       ['wind-down videos', `${s.videosWatched} then sleep`],
     ];
 
-    drawPanel(g, 30, 130, W - 60, 452, 'rgba(255,250,242,0.94)');
+    drawPanel(g, 30, 130, W - 60, 460, 'rgba(255,250,242,0.94)');
     g.textBaseline = 'middle';
     lines.forEach(([label, value], i) => {
-      const y = 156 + i * 28;
-      g.font = font(14, 500);
+      const y = 152 + i * 24.5;
+      g.font = font(13, 500);
       g.fillStyle = '#6b463c';
       g.textAlign = 'left';
       g.fillText(label, 52, y);
-      g.font = font(14);
+      g.font = font(13);
       g.fillStyle = '#c0605e';
       g.textAlign = 'right';
       g.fillText(value, W - 52, y);
@@ -82,24 +83,24 @@ export class RecapScene implements Scene {
         g.strokeStyle = 'rgba(107,70,60,0.12)';
         g.lineWidth = 1;
         g.beginPath();
-        g.moveTo(52, y + 14);
-        g.lineTo(W - 52, y + 14);
+        g.moveTo(52, y + 12);
+        g.lineTo(W - 52, y + 12);
         g.stroke();
       }
     });
 
     // the family
-    faceInCircle(g, sprites.louiseFace, W / 2 - 80, 616, 44, '#ffdfe5');
-    faceInCircle(g, sprites.danFace, W / 2 + 80, 616, 44, '#e2f2e6');
-    drawDog(g, 'mochi', W / 2 - 8, 652, 62, this.t);
-    drawDog(g, 'leo', W / 2 + 26, 656, 56, this.t, { flip: true });
+    faceInCircle(g, sprites.louiseFace, W / 2 - 80, 636, 42, '#ffdfe5');
+    faceInCircle(g, sprites.danFace, W / 2 + 80, 636, 42, '#e2f2e6');
+    drawDog(g, 'mochi', W / 2 - 8, 672, 60, this.t);
+    drawDog(g, 'leo', W / 2 + 26, 676, 54, this.t, { flip: true });
+
+    for (const b of this.btns) b.draw(g, this.t);
 
     g.font = font(13, 500);
     g.fillStyle = 'rgba(255,243,221,0.9)';
     g.textAlign = 'center';
-    g.fillText('made with love (and only brown food) — for Louise', W / 2, 682);
-
-    for (const b of this.btns) b.draw(g, this.t);
+    g.fillText('made with love (and only brown food) — for Louise', W / 2, 772);
   }
 
   down(x: number, y: number): void {

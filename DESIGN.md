@@ -27,7 +27,10 @@ day, playable in ~5 minutes on a phone with one restless thumb.
    two), Organize Kitchen Cabinets and Organize Bathroom Cabinets
    (sort-to-shelf minis; Dan's shelf holds one deodorant), Nina call,
    awkward AI-friend attempt. No jazz beat — "jazz" in the brief just
-   meant "other things" (per Dan).
+   meant "other things" (per Dan). The mandatory Dinner Time beat is
+   three courses: HER eggs (Dan complains about the smell, lovingly),
+   her smelly tea (Dan complains again, still lovingly, he stays), then
+   the flip-timing brown food for Dan.
 5. **Grit Cycle, Dana Point — always the last outing.** Rhythm spin finale;
    she waves at classmates, they never wave back, she finishes anyway.
    She always finishes.

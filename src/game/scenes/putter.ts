@@ -31,7 +31,7 @@ const CARDS: CardInfo[] = [
   { id: 'skincare', name: '5-Step Skincare', place: 'the bottle cabinet', color: '#4a6fa5' },
   { id: 'kcab', name: 'Organize Kitchen', place: 'cabinets, condo kitchen', color: '#6a8f5f' },
   { id: 'bcab', name: 'Organize Bathroom', place: 'cabinets, NOT the skincare ones', color: '#5f7f8f' },
-  { id: 'brown', name: 'Brown Food Dinner', place: 'the condo kitchen', color: '#a5713f', required: true },
+  { id: 'brown', name: 'Dinner Time', place: 'her eggs + tea, then his brown food', color: '#a5713f', required: true },
 ];
 
 const NEED = 5;
@@ -1128,11 +1128,30 @@ class Dialogue implements Mini {
 }
 
 // ===================================================================
-// Brown Food Dinner: flip-timing. Everything must be brown. For Dan.
+// Dinner Time, three courses of comedy:
+// 1) Louise cooks HER eggs (Dan complains about the smell, lovingly)
+// 2) Louise brews her smelly tea (Dan complains again, still lovingly)
+// 3) The flip-timing Brown Food Dinner for Dan. No colors allowed.
 // ===================================================================
+
+interface StinkBubble {
+  x: number;
+  y: number;
+  popped: boolean;
+}
+
+const DAN_EGG_LINES = ['oh no. Louise cooked her eggs.', 'the eggs. my one weakness.', 'I love you but the AIR, Lou.'];
+const DAN_TEA_LINES = ['is that... the tea. it is the tea.', 'that tea could open a locked door.', 'he opens a window. it does nothing.'];
 
 class BrownFood implements Mini {
   private t = 0;
+  private stage: 'eggs' | 'tea' | 'cook' = 'eggs';
+  private pops = 0;
+  private whistle = 0;
+  private danSay = '';
+  private danSayT = 0;
+  private bubbles: StinkBubble[] = [];
+  private bubbleIn = 0.6;
   private flips = 0;
   private need = 6;
   private marker = 0;
@@ -1145,11 +1164,18 @@ class BrownFood implements Mini {
     private e: Engine,
     private finish: (toast: string) => void,
   ) {
-    e.toast('Dinner for Dan: chicken and steak. Colors are forbidden.');
+    e.toast('First: HER dinner. Eggs. Dan has already left the room. (He has not.)');
+  }
+
+  private danComplain(pool: string[]): void {
+    this.danSay = pool[this.e.state.stats.danComplaints % pool.length];
+    this.danSayT = 2.8;
+    this.e.state.stats.danComplaints++;
   }
 
   update(dt: number): void {
     this.t += dt;
+    this.danSayT = Math.max(0, this.danSayT - dt);
     if (this.endT >= 0) {
       this.endT += dt;
       if (this.endT > 2.4) {
@@ -1157,6 +1183,18 @@ class BrownFood implements Mini {
         this.e.state.stats.brownPct = Math.round(avg * 100);
         this.finish('Dan: "Perfect. No colors." High praise.');
       }
+      return;
+    }
+    if (this.stage === 'eggs') {
+      this.bubbleIn -= dt;
+      if (this.bubbleIn <= 0 && this.bubbles.filter((b) => !b.popped).length < 3) {
+        this.bubbleIn = 0.55 + Math.random() * 0.5;
+        this.bubbles.push({ x: 200 + Math.random() * 80, y: 396 + Math.random() * 14, popped: false });
+      }
+      return;
+    }
+    if (this.stage === 'tea') {
+      this.whistle = Math.min(1, this.whistle + dt * 0.22);
       return;
     }
     this.marker += this.dir * dt * this.speed;
@@ -1172,10 +1210,23 @@ class BrownFood implements Mini {
 
   draw(g: CanvasRenderingContext2D): void {
     bgKitchen(g);
-    headline(g, 'BROWN FOOD DINNER', W / 2, 56, 26, '#4a2e33', 'rgba(255,255,255,0.9)');
+    const title = this.stage === 'eggs' ? 'COURSE 1: HER EGGS' : this.stage === 'tea' ? 'COURSE 2: THE TEA' : 'COURSE 3: BROWN FOOD';
+    headline(g, title, W / 2, 56, 26, '#4a2e33', 'rgba(255,255,255,0.9)');
     g.font = font(14, 500);
     g.fillStyle = '#4a2e33';
     g.textAlign = 'center';
+    if (this.stage === 'eggs') {
+      g.fillText(`pop the egg bubbles — ${this.pops} / 5 (the smell is spreading)`, W / 2, 90);
+      this.drawEggs(g);
+      this.danNpc(g);
+      return;
+    }
+    if (this.stage === 'tea') {
+      g.fillText('tap the kettle ONLY when it whistles', W / 2, 90);
+      this.drawTea(g);
+      this.danNpc(g);
+      return;
+    }
     g.fillText('tap FLIP when the marker is in the brown zone', W / 2, 90);
     g.fillText(`flip ${Math.min(this.flips + 1, this.need)} / ${this.need} — ${this.flips < 3 ? 'chicken' : 'steak'}`, W / 2, 112);
 
@@ -1260,8 +1311,157 @@ class BrownFood implements Mini {
     }
   }
 
+  // Dan NPC suffering (lovingly) with a speech bubble + drifting stink
+  private danNpc(g: CanvasRenderingContext2D): void {
+    // stink lines drifting from the stove toward Dan
+    g.strokeStyle = 'rgba(150,170,110,0.6)';
+    g.lineWidth = 3;
+    g.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const drift = ((this.t * 40 + i * 60) % 180);
+      const sx = 240 + drift;
+      const sy = 380 - drift * 0.35;
+      g.globalAlpha = Math.max(0, 1 - drift / 180);
+      g.beginPath();
+      g.moveTo(sx, sy);
+      g.quadraticCurveTo(sx + 8, sy - 12, sx, sy - 24);
+      g.quadraticCurveTo(sx - 8, sy - 36, sx, sy - 48);
+      g.stroke();
+      g.globalAlpha = 1;
+    }
+    const recoil = this.danSayT > 0 ? Math.sin(this.t * 10) * 0.03 - 0.08 : Math.sin(this.t * 0.9) * 0.012;
+    drawDan(g, 402, 700, 185, this.t, { rot: recoil });
+    if (this.danSayT > 0) {
+      const a = Math.min(1, this.danSayT / 0.3);
+      g.globalAlpha = a;
+      g.fillStyle = '#fff';
+      rr(g, 180, 486, 240, 58, 16);
+      g.fill();
+      g.beginPath();
+      g.moveTo(370, 544);
+      g.lineTo(396, 566);
+      g.lineTo(392, 544);
+      g.closePath();
+      g.fill();
+      g.fillStyle = '#4a2e33';
+      g.font = font(14, 500);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(`dan: "${this.danSay}"`, 300, 515, 220);
+      g.globalAlpha = 1;
+    }
+    drawLouise(g, 90, 700, 185, this.t, { rot: 0.03 });
+    g.font = font(12, 500);
+    g.fillStyle = 'rgba(74,46,51,0.8)';
+    g.textAlign = 'center';
+    g.fillText('louise: "it smells like PROTEIN"', 105, 720);
+  }
+
+  private drawEggs(g: CanvasRenderingContext2D): void {
+    // pan with scrambling eggs
+    g.fillStyle = '#2c2a33';
+    g.beginPath();
+    g.ellipse(240, 420, 90, 26, 0, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = '#2c2a33';
+    g.lineWidth = 12;
+    g.beginPath();
+    g.moveTo(325, 415);
+    g.lineTo(395, 400);
+    g.stroke();
+    g.fillStyle = '#f2d64c';
+    g.beginPath();
+    g.ellipse(240, 412, 52, 16, 0, 0, Math.PI * 2);
+    g.fill();
+    for (const b of this.bubbles) {
+      if (b.popped) continue;
+      const pulse = 1 + Math.sin(this.t * 9 + b.x) * 0.15;
+      g.fillStyle = '#f7e58a';
+      g.beginPath();
+      g.arc(b.x, b.y, 11 * pulse, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = 'rgba(74,46,51,0.4)';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(b.x, b.y, 13 * pulse, 0, Math.PI * 2);
+      g.stroke();
+    }
+  }
+
+  private drawTea(g: CanvasRenderingContext2D): void {
+    const whistling = this.whistle >= 1;
+    const shake = whistling ? Math.sin(this.t * 30) * 3 : 0;
+    // kettle
+    g.save();
+    g.translate(240 + shake, 400);
+    g.fillStyle = '#8f9a94';
+    g.beginPath();
+    g.ellipse(0, 0, 46, 34, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#7a857f';
+    rr(g, -14, -52, 28, 16, 6);
+    g.fill();
+    // spout
+    g.strokeStyle = '#8f9a94';
+    g.lineWidth = 10;
+    g.beginPath();
+    g.moveTo(40, -14);
+    g.lineTo(62, -30);
+    g.stroke();
+    g.restore();
+    // steam when whistling
+    if (whistling) {
+      g.strokeStyle = 'rgba(255,255,255,0.75)';
+      g.lineWidth = 3;
+      for (let i = 0; i < 2; i++) {
+        const sy = 360 - ((this.t * 60 + i * 30) % 60);
+        g.beginPath();
+        g.moveTo(305, sy);
+        g.quadraticCurveTo(313, sy - 10, 305, sy - 20);
+        g.stroke();
+      }
+      headline(g, 'TSSSSSS!', 240, 300, 24, '#fff3b0');
+    }
+    drawMeter(g, W / 2 - 90, 448, 180, 14, this.whistle, whistling ? '#e74c3c' : '#8f9a94', whistling ? 'NOW!' : 'heating...');
+  }
+
   down(x: number, y: number): void {
     if (this.endT >= 0) return;
+    if (this.stage === 'eggs') {
+      for (const b of this.bubbles) {
+        if (!b.popped && Math.hypot(x - b.x, y - b.y) < 26) {
+          b.popped = true;
+          this.pops++;
+          this.e.fx.puff(b.x, b.y, 'rgba(247,229,138,0.9)');
+          this.e.bumpChill(2);
+          if (this.pops === 2) this.danComplain(DAN_EGG_LINES);
+          if (this.pops >= 5) {
+            this.danComplain(DAN_EGG_LINES);
+            this.e.toast('Eggs: achieved. Dan: emotionally compromised.');
+            this.stage = 'tea';
+            this.whistle = 0;
+          }
+          return;
+        }
+      }
+      return;
+    }
+    if (this.stage === 'tea') {
+      if (Math.hypot(x - 240, y - 400) < 80) {
+        if (this.whistle >= 1) {
+          this.e.fx.sparkle(240, 360, '#fff3b0');
+          this.e.bumpChill(4);
+          this.danComplain(DAN_TEA_LINES);
+          this.e.toast('Tea: brewed. Radius of effect: the entire condo.');
+          this.stage = 'cook';
+          this.e.toast('NOW his dinner: chicken and steak. Colors are forbidden.');
+        } else {
+          this.e.fx.puff(x, y, 'rgba(255,255,255,0.5)');
+          this.e.toast('Patience. The kettle decides when.');
+        }
+      }
+      return;
+    }
     if (Math.abs(x - W / 2) < 95 && Math.abs(y - 652) < 36) {
       const inZone = this.marker >= 0.38 && this.marker <= 0.64;
       const quality = inZone ? 1 : this.marker < 0.38 ? 0.3 : 0.55;

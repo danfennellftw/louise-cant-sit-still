@@ -289,17 +289,29 @@ while ((await g(`e.scene['mini'] !== null`)) && guard++ < 40) {
 }
 log('kitchen cabinets organized');
 
-// --- brown food (card 11)
+// --- dinner time (card 11): her eggs, her tea, his brown food
 await openCard(11);
 await shot('09-brownfood');
 guard = 0;
-while ((await g(`e.scene['mini'] !== null`)) && guard++ < 400) {
-  const m = await g(`e.scene['mini']['marker']`);
-  const end = await g(`e.scene['mini']['endT']`);
-  if (end < 0 && m > 0.44 && m < 0.58) await click(240, 652);
-  await page.waitForTimeout(30);
+while ((await g(`e.scene['mini'] !== null`)) && guard++ < 600) {
+  const st = JSON.parse(
+    await g(
+      `JSON.stringify({stage: e.scene['mini']['stage'], bubbles: e.scene['mini']['bubbles'], whistle: e.scene['mini']['whistle'], marker: e.scene['mini']['marker'], end: e.scene['mini']['endT']})`,
+    ),
+  );
+  if (st.end >= 0) {
+    // plating
+  } else if (st.stage === 'eggs') {
+    const b = st.bubbles.find((q) => !q.popped);
+    if (b) await click(b.x, b.y);
+  } else if (st.stage === 'tea') {
+    if (st.whistle >= 1) await click(240, 400);
+  } else if (st.marker > 0.44 && st.marker < 0.58) {
+    await click(240, 652);
+  }
+  await page.waitForTimeout(40);
 }
-log('brown food cooked');
+log(`dinner done (dan complaints: ${await g(`e.state.stats.danComplaints`)})`);
 
 // map pill check mid-game
 await click(434, 28);

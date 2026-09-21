@@ -25,6 +25,7 @@ export interface Stats {
   videosWatched: number;
   treatsGiven: number;
   honks: number;
+  danComplaints: number;
 }
 
 function freshStats(): Stats {
@@ -55,6 +56,7 @@ function freshStats(): Stats {
     videosWatched: 0,
     treatsGiven: 0,
     honks: 0,
+    danComplaints: 0,
   };
 }
 
