@@ -3,6 +3,16 @@ import { SKIES, drawPalm } from '../art';
 import { sprites, drawSprite } from '../sprites';
 import { font, drawMeter, headline } from '../ui';
 
+interface BikeStyle {
+  frame: string;
+  frameHi: string;
+  panniers: boolean;
+  chestDog: boolean;
+}
+
+const LOUISE_BIKE: BikeStyle = { frame: '#ece5d3', frameHi: 'rgba(120,110,90,0.5)', panniers: true, chestDog: true };
+const DAN_BIKE: BikeStyle = { frame: '#2e2e36', frameHi: 'rgba(255,255,255,0.25)', panniers: false, chestDog: false };
+
 const ZONE_LO = 0.35;
 const ZONE_HI = 0.65;
 const NEED = 20; // seconds spent actually cruising
@@ -39,6 +49,7 @@ export class EbikeScene implements Scene {
     this.e.showChill = true;
     this.e.chillDrain = 2;
     this.e.toast('Aima e-bikes out. Destination: Dana Point. Vibe: allegedly relaxed.');
+    setTimeout(() => this.e.toast('Leo rides in the chest carrier. He is wearing his doggles. He earned them.'), 2600);
   }
 
   update(dt: number): void {
@@ -96,49 +107,72 @@ export class EbikeScene implements Scene {
     g.arc(W / 2, 240, 40, 0, Math.PI * 2);
     g.fill();
 
-    // far hills, slow parallax
-    g.fillStyle = '#8a5f8f';
-    for (let i = -1; i < 3; i++) {
-      const hx = ((i * 300 - (this.scroll * 0.15) % 300) + 300) % 900 - 150;
+    // ocean, the whole ride (it's the coastal stretch of the trail)
+    g.fillStyle = '#4a7d9e';
+    g.fillRect(0, 340, W, 60);
+    g.fillStyle = 'rgba(255,255,255,0.5)';
+    for (let i = 0; i < 7; i++) {
+      const wx = ((i * 85 - this.scroll * 0.25) % (W + 60) + W + 60) % (W + 60) - 30;
+      g.fillRect(wx, 352 + (i % 3) * 13, 30, 2.5);
+    }
+    // beach sand with umbrellas + beachgoer dots
+    g.fillStyle = '#e8d5ae';
+    g.fillRect(0, 400, W, 72);
+    for (let i = 0; i < 5; i++) {
+      const ux = (((i * 150 - this.scroll * 0.35) % (W + 120)) + W + 120) % (W + 120) - 60;
+      const uc = ['#c0605e', '#4a6fa5', '#e6a23c', '#5b8c6e', '#8e7cc3'][i];
+      g.fillStyle = uc;
       g.beginPath();
-      g.ellipse(hx, 420, 220, 90, 0, Math.PI, 0);
+      g.arc(ux, 424, 13, Math.PI, 0);
+      g.fill();
+      g.strokeStyle = uc;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(ux, 424);
+      g.lineTo(ux, 438);
+      g.stroke();
+      g.fillStyle = 'rgba(90,70,60,0.55)';
+      g.beginPath();
+      g.arc(ux + 34, 440, 4, 0, Math.PI * 2);
       g.fill();
     }
-    // ocean strip slides in as they get close
-    const closeness = Math.min(1, this.cruised / NEED);
-    if (closeness > 0.5) {
-      g.globalAlpha = (closeness - 0.5) * 2;
-      g.fillStyle = '#4a7d9e';
-      g.fillRect(0, 400, W, 36);
-      g.fillStyle = 'rgba(255,255,255,0.5)';
-      for (let i = 0; i < 6; i++) {
-        g.fillRect(((i * 90 - this.scroll * 0.4) % (W + 60) + W + 60) % (W + 60) - 30, 410 + (i % 3) * 8, 26, 2.5);
-      }
-      g.globalAlpha = 1;
+    // lifeguard tower drifting by
+    {
+      const lx = (((80 - this.scroll * 0.45) % (W + 260)) + W + 260) % (W + 260) - 130;
+      g.strokeStyle = '#7ea8c4';
+      g.lineWidth = 5;
+      g.beginPath();
+      g.moveTo(lx - 20, 462);
+      g.lineTo(lx - 14, 408);
+      g.moveTo(lx + 20, 462);
+      g.lineTo(lx + 14, 408);
+      g.stroke();
+      g.fillStyle = '#6fb5b8';
+      rr(g, lx - 26, 380, 52, 32, 5);
+      g.fill();
+      g.fillStyle = '#dff2f2';
+      rr(g, lx - 16, 388, 32, 14, 3);
+      g.fill();
+      g.fillStyle = '#5a99a0';
+      rr(g, lx - 30, 374, 60, 8, 4);
+      g.fill();
     }
-
-    // mid palms + fence posts, faster parallax
+    // palms between beach and path
     for (let i = 0; i < 4; i++) {
       const px = (((i * 190 - this.scroll * 0.55) % (W + 160)) + W + 160) % (W + 160) - 80;
-      drawPalm(g, px, 470, 0.7, Math.sin(this.t + i) * 2);
+      drawPalm(g, px, 480, 0.6, Math.sin(this.t + i) * 2);
     }
-    // trail
-    g.fillStyle = '#cbb188';
-    g.fillRect(0, 470, W, 190);
-    g.strokeStyle = 'rgba(120,90,60,0.4)';
+    // paved coastal path
+    g.fillStyle = '#9a958f';
+    g.fillRect(0, 472, W, 188);
+    g.strokeStyle = 'rgba(255,255,255,0.4)';
     g.lineWidth = 3;
     g.setLineDash([30, 26]);
     g.beginPath();
-    g.moveTo(0, 570 + Math.sin(this.scroll * 0.01) * 2);
-    g.lineTo(W, 570);
+    g.moveTo(0, 572);
+    g.lineTo(W, 572);
     g.stroke();
     g.setLineDash([]);
-    // fence posts
-    g.fillStyle = '#8a6b52';
-    for (let i = 0; i < 6; i++) {
-      const fx = (((i * 110 - this.scroll * 0.8) % (W + 80)) + W + 80) % (W + 80) - 40;
-      g.fillRect(fx, 448, 8, 26);
-    }
     g.fillStyle = '#d9cfb8';
     g.fillRect(0, 660, W, H - 660);
 
@@ -175,8 +209,8 @@ export class EbikeScene implements Scene {
 
     // riders: Louise up front, Dan cruising behind
     const wob = inZone ? 0 : Math.sin(this.t * 18) * 0.03;
-    this.drawEbike(g, 290, 640, sprites.louise, 200, 0.16 + wob, this.speed);
-    this.drawEbike(g, 90, 648, sprites.dan, 190, 0.1, 0.5);
+    this.drawEbike(g, 290, 640, sprites.louise, 200, 0.16 + wob, this.speed, LOUISE_BIKE);
+    this.drawEbike(g, 90, 648, sprites.dan, 190, 0.1, 0.5, DAN_BIKE);
     g.font = font(11, 500);
     g.fillStyle = 'rgba(60,35,70,0.85)';
     g.fillText('louise: allegedly cruising', 290, 668);
@@ -190,7 +224,7 @@ export class EbikeScene implements Scene {
     }
   }
 
-  /** side-view step-through e-bike with a rider sprite over it */
+  /** side-view Aima step-through e-bike (from the photos) with rider over it */
   private drawEbike(
     g: CanvasRenderingContext2D,
     x: number,
@@ -199,31 +233,93 @@ export class EbikeScene implements Scene {
     h: number,
     lean: number,
     speed: number,
+    style: BikeStyle,
   ): void {
     const wheelSpin = this.scroll * 0.05;
     // rider first (feet at pedal height), bike frame overlaps their legs
     drawSprite(g, rider, x - 10, y - 48, h, { rot: lean });
-    // wheels, sized to the rider
+    // Leo in the chest carrier, doggles on
+    if (style.chestDog) {
+      const cx = x - 18;
+      const cy = y - 48 - h * 0.58;
+      drawSprite(g, sprites.leo, cx, cy + 26, 52, { rot: lean * 0.6 });
+      // carrier pouch over his body
+      g.save();
+      g.translate(cx, cy);
+      g.rotate(lean * 0.6);
+      g.fillStyle = '#3c3a45';
+      rr(g, -20, -4, 40, 30, 12);
+      g.fill();
+      g.strokeStyle = '#3c3a45';
+      g.lineWidth = 5;
+      g.beginPath();
+      g.moveTo(-16, 0);
+      g.lineTo(-4, -34);
+      g.moveTo(16, 0);
+      g.lineTo(6, -34);
+      g.stroke();
+      // tiny doggles
+      g.fillStyle = '#2bb3c4';
+      g.beginPath();
+      g.ellipse(-6, -16, 5, 4, 0, 0, Math.PI * 2);
+      g.ellipse(6, -16, 5, 4, 0, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#1d1d24';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(-11, -16);
+      g.lineTo(-14, -18);
+      g.moveTo(11, -16);
+      g.lineTo(14, -18);
+      g.moveTo(-1, -16);
+      g.lineTo(1, -16);
+      g.stroke();
+      g.restore();
+    }
+    // wheels: tan sidewalls like the photos
     for (const wx of [x - 66, x + 66]) {
-      g.fillStyle = '#26242a';
+      g.fillStyle = '#b0713f';
       g.beginPath();
       g.arc(wx, y - 6, 30, 0, Math.PI * 2);
       g.fill();
+      g.fillStyle = '#26242a';
+      g.beginPath();
+      g.arc(wx, y - 6, 24, 0, Math.PI * 2);
+      g.fill();
       g.fillStyle = '#3c3a45';
       g.beginPath();
-      g.arc(wx, y - 6, 21, 0, Math.PI * 2);
+      g.arc(wx, y - 6, 16, 0, Math.PI * 2);
       g.fill();
       g.strokeStyle = 'rgba(255,255,255,0.5)';
-      g.lineWidth = 2.4;
+      g.lineWidth = 2.2;
       g.beginPath();
-      g.moveTo(wx + Math.cos(wheelSpin) * 19, y - 6 + Math.sin(wheelSpin) * 19);
-      g.lineTo(wx - Math.cos(wheelSpin) * 19, y - 6 - Math.sin(wheelSpin) * 19);
-      g.moveTo(wx + Math.cos(wheelSpin + 1.6) * 19, y - 6 + Math.sin(wheelSpin + 1.6) * 19);
-      g.lineTo(wx - Math.cos(wheelSpin + 1.6) * 19, y - 6 - Math.sin(wheelSpin + 1.6) * 19);
+      g.moveTo(wx + Math.cos(wheelSpin) * 15, y - 6 + Math.sin(wheelSpin) * 15);
+      g.lineTo(wx - Math.cos(wheelSpin) * 15, y - 6 - Math.sin(wheelSpin) * 15);
+      g.moveTo(wx + Math.cos(wheelSpin + 1.6) * 15, y - 6 + Math.sin(wheelSpin + 1.6) * 15);
+      g.lineTo(wx - Math.cos(wheelSpin + 1.6) * 15, y - 6 - Math.sin(wheelSpin + 1.6) * 15);
       g.stroke();
     }
+    // rear rack + leather panniers (hers)
+    if (style.panniers) {
+      g.strokeStyle = style.frame;
+      g.lineWidth = 4;
+      g.beginPath();
+      g.moveTo(x - 92, y - 64);
+      g.lineTo(x - 42, y - 64);
+      g.moveTo(x - 88, y - 64);
+      g.lineTo(x - 70, y - 30);
+      g.stroke();
+      g.fillStyle = '#8f3f34';
+      rr(g, x - 96, y - 60, 34, 34, 7);
+      g.fill();
+      g.fillStyle = '#7a3329';
+      rr(g, x - 96, y - 60, 34, 12, 7);
+      g.fill();
+      g.fillStyle = '#c9a24a';
+      g.fillRect(x - 82, y - 46, 6, 5);
+    }
     // step-through frame
-    g.strokeStyle = '#5f7f8f';
+    g.strokeStyle = style.frame;
     g.lineWidth = 11;
     g.lineCap = 'round';
     g.beginPath();
@@ -231,20 +327,27 @@ export class EbikeScene implements Scene {
     g.quadraticCurveTo(x - 6, y - 44, x + 48, y - 48);
     g.lineTo(x + 66, y - 6);
     g.stroke();
-    // seat tube + saddle up at hip height
+    // seat tube + brown leather saddle at hip height
     g.beginPath();
     g.moveTo(x - 40, y - 88);
     g.lineTo(x - 62, y - 10);
     g.stroke();
-    g.fillStyle = '#1d1d24';
-    rr(g, x - 56, y - 96, 32, 9, 4);
+    g.fillStyle = '#8a5a34';
+    rr(g, x - 58, y - 97, 34, 10, 5);
+    g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.25)';
+    rr(g, x - 58, y - 97, 34, 4, 4);
     g.fill();
     // head tube + swept-back handlebars
-    g.strokeStyle = '#1d1d24';
+    g.strokeStyle = style.frame;
     g.lineWidth = 6;
     g.beginPath();
     g.moveTo(x + 52, y - 46);
     g.lineTo(x + 62, y - 102);
+    g.stroke();
+    g.strokeStyle = '#1d1d24';
+    g.beginPath();
+    g.moveTo(x + 62, y - 102);
     g.quadraticCurveTo(x + 66, y - 112, x + 50, y - 112);
     g.stroke();
     // crank + pedal under the rider's feet
@@ -255,15 +358,24 @@ export class EbikeScene implements Scene {
     g.fillStyle = '#1d1d24';
     rr(g, x - 16, y - 52, 30, 7, 3);
     g.fill();
-    // battery block on the downtube with the text label (no logo art)
+    // downtube text labels, like the photos (text only, no logo art)
     g.save();
-    g.translate(x - 2, y - 40);
+    g.translate(x + 14, y - 42);
+    g.rotate(0.52);
+    g.fillStyle = style.frameHi;
+    g.font = font(8, 600);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('SANTA MONICA', 0, 16);
+    g.restore();
+    g.save();
+    g.translate(x - 6, y - 38);
     g.rotate(-0.06);
     g.fillStyle = '#2c2c34';
-    rr(g, -28, -8, 56, 17, 6);
+    rr(g, -24, -8, 48, 16, 6);
     g.fill();
     g.fillStyle = '#fff';
-    g.font = font(11);
+    g.font = font(10);
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillText('Aima', 0, 1);
