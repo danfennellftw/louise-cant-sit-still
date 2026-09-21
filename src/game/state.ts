@@ -1,0 +1,57 @@
+export interface Stats {
+  kibbleServed: number;
+  poopsBagged: number;
+  reps: number;
+  gymsVisited: string[];
+  pingsCleared: number;
+  urgesResisted: number;
+  urgesTaken: number;
+  dealsFound: number;
+  shoesMatched: number;
+  leoCrimes: number;
+  facialPct: number;
+  knotsCrushed: number;
+  cuddles: number;
+  zoomies: number;
+  brownPct: number;
+  waves: number;
+  spinScore: number;
+  putterDone: string[];
+}
+
+function freshStats(): Stats {
+  return {
+    kibbleServed: 0,
+    poopsBagged: 0,
+    reps: 0,
+    gymsVisited: [],
+    pingsCleared: 0,
+    urgesResisted: 0,
+    urgesTaken: 0,
+    dealsFound: 0,
+    shoesMatched: 0,
+    leoCrimes: 0,
+    facialPct: 0,
+    knotsCrushed: 0,
+    cuddles: 0,
+    zoomies: 0,
+    brownPct: 0,
+    waves: 0,
+    spinScore: 0,
+    putterDone: [],
+  };
+}
+
+export type DayPhase = 'morning' | 'noon' | 'afternoon' | 'evening' | 'night';
+
+export class GameState {
+  chill = 70;
+  stats: Stats = freshStats();
+  /** config for the travel interstitial */
+  nextStop = { label: 'Grit Cycle, Dana Point', scene: 'title', phase: 'morning' as DayPhase };
+
+  reset(): void {
+    this.chill = 70;
+    this.stats = freshStats();
+  }
+}
