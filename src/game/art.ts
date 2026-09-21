@@ -494,40 +494,53 @@ export function bgKitchen(g: CanvasRenderingContext2D, phase: DayPhase = 'evenin
   g.fillRect(0, 650, W, H - 650);
 }
 
-/** the garage: concrete, roller door, and the sauna box */
+/** the garage, from the real photo: cream wall, wall charger, speckled floor */
 export function bgGarage(g: CanvasRenderingContext2D): void {
-  g.fillStyle = '#b9b2ac';
-  g.fillRect(0, 0, W, H);
-  // roller door
-  g.fillStyle = '#a49d96';
-  rr(g, 40, 60, 400, 250, 8);
+  // cream wall
+  g.fillStyle = '#efe8db';
+  g.fillRect(0, 0, W, 620);
+  // security camera dot, top-left like the photo
+  g.fillStyle = '#dcd4c6';
+  g.beginPath();
+  g.arc(36, 96, 12, 0, Math.PI * 2);
   g.fill();
-  g.strokeStyle = 'rgba(70,64,60,0.3)';
-  g.lineWidth = 3;
-  for (let i = 1; i < 6; i++) {
-    g.beginPath();
-    g.moveTo(40, 60 + i * 42);
-    g.lineTo(440, 60 + i * 42);
-    g.stroke();
-  }
-  // storage shelf with bins
   g.fillStyle = '#8a8178';
-  rr(g, 30, 340, 150, 12, 4);
+  g.beginPath();
+  g.arc(36, 96, 5, 0, Math.PI * 2);
   g.fill();
-  for (let i = 0; i < 3; i++) {
-    g.fillStyle = ['#7ea8c4', '#c9b16a', '#9aa38b'][i];
-    rr(g, 38 + i * 46, 310, 40, 30, 5);
+  // EV wall charger on the left (white box, glowing ring, looping cable)
+  g.fillStyle = '#f8f8f6';
+  rr(g, 34, 280, 52, 96, 18);
+  g.fill();
+  g.strokeStyle = 'rgba(120,120,120,0.3)';
+  g.lineWidth = 2;
+  rr(g, 34, 280, 52, 96, 18);
+  g.stroke();
+  g.fillStyle = '#5fd08a';
+  g.beginPath();
+  g.arc(60, 322, 7, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = '#c9c4ba';
+  g.lineWidth = 6;
+  g.beginPath();
+  g.moveTo(60, 376);
+  g.bezierCurveTo(60, 460, 20, 470, 22, 560);
+  g.stroke();
+  // wall outlet
+  g.fillStyle = '#f8f8f6';
+  rr(g, 420, 470, 22, 34, 4);
+  g.fill();
+  // speckled terrazzo garage floor
+  g.fillStyle = '#d9cfb8';
+  g.fillRect(0, 620, W, H - 620);
+  for (let i = 0; i < 90; i++) {
+    const x = (i * 97 + ((i * i) % 41) * 7) % W;
+    const y = 626 + ((i * 53 + ((i * 13) % 29) * 11) % (H - 632));
+    g.fillStyle = i % 3 === 0 ? 'rgba(60,55,50,0.5)' : i % 3 === 1 ? 'rgba(140,120,90,0.5)' : 'rgba(255,255,255,0.6)';
+    g.beginPath();
+    g.arc(x, y, 1.6 + (i % 3), 0, Math.PI * 2);
     g.fill();
   }
-  // concrete floor
-  g.fillStyle = '#8f8a85';
-  g.fillRect(0, 620, W, H - 620);
-  g.strokeStyle = 'rgba(60,55,50,0.2)';
-  g.lineWidth = 2;
-  g.beginPath();
-  g.moveTo(0, 660);
-  g.lineTo(W, 700);
-  g.stroke();
 }
 
 /** dark neon spin studio for the Grit Cycle finale */

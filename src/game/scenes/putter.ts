@@ -1684,7 +1684,7 @@ class Sauna implements Mini {
     private e: Engine,
     private finish: (toast: string) => void,
   ) {
-    e.toast('The garage sauna. 180 degrees of forced stillness.');
+    e.toast('The garage sauna. Between the car charger and the snowboard. As intended.');
   }
 
   update(dt: number): void {
@@ -1729,38 +1729,97 @@ class Sauna implements Mini {
     g.fillText('press and HOLD to endure the heat (and the thoughts)', W / 2, 90);
     drawMeter(g, W / 2 - 110, 106, 220, 18, this.heat / this.need, '#c47a4a', `heat ${Math.round((this.heat / this.need) * 100)}%`);
 
-    // the sauna box
-    const sx = 130;
-    const sy = 330;
-    g.fillStyle = '#a9764a';
-    rr(g, sx, sy, 220, 290, 12);
+    // the one-person upright sauna from the photo: light pine, tall glass door
+    const sx = 160;
+    const sy = 270;
+    const sw = 160;
+    const sh = 420;
+    // mounted snowboard above it
+    g.save();
+    g.translate(W / 2, sy - 34);
+    g.rotate(-0.04);
+    g.fillStyle = '#e8b0be';
+    rr(g, -120, -16, 240, 32, 16);
     g.fill();
-    g.strokeStyle = 'rgba(74,46,51,0.3)';
+    g.fillStyle = '#f6f1e7';
+    rr(g, -120, -16, 70, 32, 16);
+    g.fill();
+    rr(g, 50, -16, 70, 32, 16);
+    g.fill();
+    g.fillStyle = '#26242a';
+    rr(g, -62, -22, 30, 40, 8);
+    g.fill();
+    rr(g, 34, -22, 30, 40, 8);
+    g.fill();
+    g.restore();
+
+    // pine frame
+    g.fillStyle = '#e2c391';
+    rr(g, sx, sy, sw, sh, 10);
+    g.fill();
+    g.strokeStyle = 'rgba(150,110,60,0.35)';
     g.lineWidth = 2;
-    for (let i = 1; i < 7; i++) {
+    for (let i = 1; i < 10; i++) {
       g.beginPath();
-      g.moveTo(sx + 6, sy + i * 40);
-      g.lineTo(sx + 214, sy + i * 40);
+      g.moveTo(sx + 4, sy + i * (sh / 10));
+      g.lineTo(sx + 14, sy + i * (sh / 10));
+      g.moveTo(sx + sw - 14, sy + i * (sh / 10));
+      g.lineTo(sx + sw - 4, sy + i * (sh / 10));
       g.stroke();
     }
-    // glass door with Louise inside
-    g.fillStyle = 'rgba(120,90,70,0.9)';
-    rr(g, sx + 60, sy + 40, 100, 210, 10);
+    // full-height glass door
+    const gx = sx + 20;
+    const gy = sy + 16;
+    const gw = sw - 40;
+    const gh = sh - 32;
+    g.fillStyle = 'rgba(140,120,95,0.9)';
+    rr(g, gx - 4, gy - 4, gw + 8, gh + 8, 10);
     g.fill();
-    g.fillStyle = 'rgba(200,230,240,0.35)';
-    rr(g, sx + 68, sy + 48, 84, 194, 8);
+    g.fillStyle = 'rgba(190,215,230,0.3)';
+    rr(g, gx, gy, gw, gh, 8);
     g.fill();
-    faceInCircle(g, sprites.louiseFace, sx + 110, sy + 110, 34, 'rgba(255,255,255,0.6)');
-    // towel wrap under her chin
+    // interior: back bench slats + heater panels
+    g.strokeStyle = 'rgba(150,110,60,0.5)';
+    g.lineWidth = 3;
+    for (let i = 0; i < 4; i++) {
+      g.beginPath();
+      g.moveTo(gx + 8, gy + 60 + i * 12);
+      g.lineTo(gx + gw - 8, gy + 60 + i * 12);
+      g.stroke();
+    }
+    g.fillStyle = 'rgba(70,60,55,0.55)';
+    rr(g, gx + 8, gy + 120, 26, 90, 5);
+    g.fill();
+    rr(g, gx + gw - 34, gy + 120, 26, 90, 5);
+    g.fill();
+    // blue LED glow at the top, like the photo
+    const ledPulse = 0.6 + Math.sin(this.t * 3) * 0.25;
+    g.fillStyle = `rgba(90,150,255,${ledPulse})`;
+    g.beginPath();
+    g.ellipse(gx + gw / 2, gy + 14, 20, 7, 0, 0, Math.PI * 2);
+    g.fill();
+    // Louise inside (sprite portrait + towel), peace-sign energy
+    faceInCircle(g, sprites.louiseFace, gx + gw / 2, gy + 130, 32, 'rgba(255,255,255,0.55)');
     g.fillStyle = '#f6f1e7';
-    rr(g, sx + 82, sy + 140, 56, 40, 12);
+    rr(g, gx + gw / 2 - 27, gy + 158, 54, 44, 12);
     g.fill();
-    // sweat drops on the glass
+    // the vertical wooden "sauna" plank
+    g.fillStyle = '#d9b073';
+    rr(g, gx + 10, gy + 200, 22, 110, 6);
+    g.fill();
+    g.fillStyle = '#6b463c';
+    g.font = font(12);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    for (let i = 0; i < 5; i++) {
+      g.fillText('sauna'[i], gx + 21, gy + 216 + i * 18);
+    }
+    // sweat drops running down the glass
     g.fillStyle = 'rgba(160,210,235,0.8)';
     for (let i = 0; i < 4; i++) {
-      const dy = (this.t * 30 + i * 47) % 170;
+      const dy = (this.t * 30 + i * 63) % (gh - 60);
       g.beginPath();
-      g.ellipse(sx + 76 + i * 20, sy + 60 + dy, 3, 5, 0, 0, Math.PI * 2);
+      g.ellipse(gx + 14 + i * 26, gy + 40 + dy, 3, 5, 0, 0, Math.PI * 2);
       g.fill();
     }
     // heat shimmer above the box
@@ -1768,19 +1827,19 @@ class Sauna implements Mini {
       g.strokeStyle = 'rgba(255,180,120,0.5)';
       g.lineWidth = 3;
       for (let i = 0; i < 3; i++) {
-        const hy = sy - 12 - ((this.t * 34 + i * 26) % 70);
+        const hy = sy - 60 - ((this.t * 34 + i * 26) % 60);
         g.beginPath();
-        g.moveTo(sx + 60 + i * 50, hy);
-        g.quadraticCurveTo(sx + 68 + i * 50, hy - 10, sx + 60 + i * 50, hy - 20);
+        g.moveTo(sx + 30 + i * 50, hy);
+        g.quadraticCurveTo(sx + 38 + i * 50, hy - 10, sx + 30 + i * 50, hy - 20);
         g.stroke();
       }
     }
-    // thermometer prop
+    // thermometer on the frame
     g.fillStyle = '#f6f1e7';
-    rr(g, sx + 174, sy + 50, 16, 60, 8);
+    rr(g, sx + sw - 16, sy + 40, 14, 60, 7);
     g.fill();
     g.fillStyle = '#c0392b';
-    rr(g, sx + 179, sy + 58 + (1 - this.heat / this.need) * 30, 6, 46 - (1 - this.heat / this.need) * 30, 3);
+    rr(g, sx + sw - 12, sy + 48 + (1 - this.heat / this.need) * 30, 6, 46 - (1 - this.heat / this.need) * 30, 3);
     g.fill();
 
     // intrusive planning thoughts
@@ -1788,12 +1847,12 @@ class Sauna implements Mini {
       const a = Math.min(1, this.thoughtT / 0.3);
       g.globalAlpha = a;
       g.fillStyle = 'rgba(255,255,255,0.95)';
-      rr(g, W / 2 - 90, 250, 180, 40, 18);
+      rr(g, W / 2 - 90, 152, 180, 40, 18);
       g.fill();
       g.fillStyle = '#4a2e33';
       g.font = font(13, 500);
       g.textBaseline = 'middle';
-      g.fillText(this.thought, W / 2, 271, 164);
+      g.fillText(this.thought, W / 2, 173, 164);
       g.globalAlpha = 1;
     }
 
