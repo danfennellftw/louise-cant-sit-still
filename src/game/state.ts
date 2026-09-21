@@ -1,6 +1,10 @@
 export interface Stats {
   kibbleServed: number;
   poopsBagged: number;
+  barksCalmed: number;
+  carpetScrubs: number;
+  peesBlocked: number;
+  peesMopped: number;
   reps: number;
   gymsVisited: string[];
   pingsCleared: number;
@@ -23,6 +27,10 @@ function freshStats(): Stats {
   return {
     kibbleServed: 0,
     poopsBagged: 0,
+    barksCalmed: 0,
+    carpetScrubs: 0,
+    peesBlocked: 0,
+    peesMopped: 0,
     reps: 0,
     gymsVisited: [],
     pingsCleared: 0,
