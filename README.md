@@ -2,6 +2,8 @@
 
 A cozy, shareable browser adventure for Louise — a loving roast about someone who cannot sit still, set across stylized Orange County.
 
+**Vercel:** Import this repo → preset **Vite** → `npm run build` → output **`dist/`** → Deploy. No env vars, no server. Share the `*.vercel.app` link.
+
 Visit the condo with Dan (make the bed, organize, plate the sacred **only brown food**), hit three real gyms in three towns (**Shredz** · Ladera Ranch, **Crunch** · San Clemente, **Eow** · Rancho Santa Margarita), **Grit Cycle** in Dana Point (every day — showed up anyway), groceries, TJ Maxx, Marshall's, the mall, skincare, massage, Nike shoes, a coffee meetup to find her **AI people**, and a phone call with **Nina** — with **Mochi** and **Aleo** trotting along.
 
 ## Play locally
