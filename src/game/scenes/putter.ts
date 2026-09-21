@@ -96,7 +96,7 @@ export class PutterScene implements Scene {
       pulse: unlocked,
       onTap: () => {
         if (!this.e.state.chaptersDone.includes('putter')) this.e.state.chaptersDone.push('putter');
-        this.e.state.nextStop = { label: 'Grit Cycle, Dana Point', scene: 'spin', phase: 'evening' };
+        this.e.state.nextStop = { label: 'E-bike trail to Dana Point', scene: 'ebike', phase: 'evening' };
         this.e.go('between');
       },
     });

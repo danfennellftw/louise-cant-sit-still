@@ -16,7 +16,7 @@ export const CHAPTERS: Chapter[] = [
   { scene: 'gym', label: 'Gym Hop', place: 'Shredz / Crunch / EOS', color: '#ff5f6d', phase: 'morning', time: '8 AM' },
   { scene: 'work', label: 'The Sitting Olympics', place: 'home office', color: '#5b8c6e', phase: 'noon', time: '10 AM' },
   { scene: 'putter', label: 'The Puttering Hours', place: 'all over OC', color: '#e6a23c', phase: 'afternoon', time: '2 PM' },
-  { scene: 'spin', label: 'Grit Cycle', place: 'Dana Point — always last', color: '#c0605e', phase: 'evening', time: '6:30 PM' },
+  { scene: 'spin', label: 'Grit Cycle', place: 'Dana Point — e-bike trail in, always last', color: '#c0605e', phase: 'evening', time: '6:30 PM' },
   { scene: 'winddown', label: 'Wind-down YouTube', place: 'in bed, then dog duty', color: '#8e7cc3', phase: 'night', time: '9 PM' },
 ];
 
@@ -76,7 +76,8 @@ export class DayMapScene implements Scene {
     g.lineTo(64, 140 + (CHAPTERS.length - 1) * 96);
     g.stroke();
 
-    const cur = this.e.state.currentChapter;
+    // the e-bike ride is part of the Grit Cycle chapter on the map
+    const cur = this.e.state.currentChapter === 'ebike' ? 'spin' : this.e.state.currentChapter;
     const done = this.e.state.chaptersDone;
     CHAPTERS.forEach((c, i) => {
       const y = 140 + i * 96;

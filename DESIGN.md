@@ -35,9 +35,13 @@ day, playable in ~5 minutes on a phone with one restless thumb.
    three courses: HER eggs (Dan complains about the smell, lovingly),
    her smelly tea (Dan complains again, still lovingly, he stays), then
    the flip-timing brown food for Dan.
-5. **Grit Cycle, Dana Point — always the last outing.** Rhythm spin finale;
-   she waves at classmates, they never wave back, she finishes anyway.
-   She always finishes.
+5. **Grit Cycle, Dana Point — always the last outing.** The bridge in is
+   the **Aima e-bike cruise** with Dan down the San Juan Capistrano trail
+   (Rancho Mission Viejo to Dana Point): hold to coast, release and she
+   pedals too hard; the assignment is to just cruise ("Aima" as a text
+   label only, no logo art). Then the rhythm spin finale; she waves at
+   classmates, they never wave back, she finishes anyway. She always
+   finishes.
 6. **Wind-down YouTube** — in bed with Dan, dogs piled on the blanket,
    flipping channels between Michelle Choi, Jeb from Greener Grass,
    Drew Binsky, skincare and other influencers (text labels only, never

@@ -7,6 +7,7 @@ import { MorningScene } from './game/scenes/morning';
 import { GymScene } from './game/scenes/gym';
 import { WorkScene } from './game/scenes/work';
 import { PutterScene } from './game/scenes/putter';
+import { EbikeScene } from './game/scenes/ebike';
 import { SpinScene } from './game/scenes/spin';
 import { WindDownScene } from './game/scenes/winddown';
 import { RecapScene } from './game/scenes/recap';
@@ -30,6 +31,7 @@ async function boot(): Promise<void> {
   engine.add('gym', new GymScene(engine));
   engine.add('work', new WorkScene(engine));
   engine.add('putter', new PutterScene(engine));
+  engine.add('ebike', new EbikeScene(engine));
   engine.add('spin', new SpinScene(engine));
   engine.add('winddown', new WindDownScene(engine));
   engine.add('recap', new RecapScene(engine));

@@ -343,6 +343,29 @@ if (!unlocked) throw new Error('grit cycle not unlocked after 5 cards incl dinne
 await click(240, 733);
 await travelThrough();
 
+// ---------------------------------------------------------------- e-bike
+await waitScene('ebike');
+await shot('10b-ebike');
+{
+  const [hx, hy] = await toClient(240, 500);
+  await page.mouse.move(hx, hy);
+  let held = false;
+  guard = 0;
+  while ((await g(`e.sceneName`)) === 'ebike' && guard++ < 500) {
+    const speed = await g(`e.scene['speed']`);
+    if (speed > 0.55 && !held) {
+      await page.mouse.down();
+      held = true;
+    } else if (speed < 0.45 && held) {
+      await page.mouse.up();
+      held = false;
+    }
+    await page.waitForTimeout(80);
+  }
+  if (held) await page.mouse.up();
+}
+log(`e-bike cruise done (${await g(`e.state.stats.zoomies`)} zoomies so far)`);
+
 // ---------------------------------------------------------------- spin
 await waitScene('spin');
 await shot('11-spin');
