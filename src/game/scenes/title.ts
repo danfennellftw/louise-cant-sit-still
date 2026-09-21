@@ -1,6 +1,6 @@
 import { Engine, Scene, W, rr } from '../engine';
 import { bgTitle } from '../art';
-import { sprites, faceInCircle, drawDog } from '../sprites';
+import { sprites, faceInCircle, drawDog, drawDan } from '../sprites';
 import { Button, tapButtons, font, headline } from '../ui';
 
 export class TitleScene implements Scene {
@@ -18,9 +18,9 @@ export class TitleScene implements Scene {
     this.e.state.reset();
     this.btns = [
       new Button({
-        x: W / 2 - 135,
+        x: W / 2 - 120,
         y: 616,
-        w: 270,
+        w: 240,
         h: 64,
         label: 'START THE DAY',
         sub: 'she is already up',
@@ -66,18 +66,18 @@ export class TitleScene implements Scene {
     const bob = (i: number) => Math.sin(this.t * 2.1 + i * 1.7) * 5;
 
     // hero portrait: Louise
-    this.nameplate(g, W / 2, 238 + bob(0), 96, 'LOUISE', '#ff5f6d');
-    faceInCircle(g, sprites.louiseFace, W / 2, 330 + bob(0), 92, '#ffdfe5');
+    faceInCircle(g, sprites.louiseFace, W / 2, 320 + bob(0), 92, '#ffdfe5');
+    this.tag(g, W / 2, 424 + bob(0), 'LOUISE', 96);
 
-    // Dan portrait
-    this.nameplate(g, 92, 356 + bob(1), 54, 'DAN', '#5b8c6e');
-    faceInCircle(g, sprites.danFace, 92, 412 + bob(1), 52, '#e2f2e6');
+    // Dan, full-body game sprite like everyone else
+    drawDan(g, 86, 580 + bob(1), 190, this.t);
+    this.tag(g, 86, 596 + bob(1), 'DAN');
 
     // dogs, full-body cuties
-    drawDog(g, 'mochi', 390, 470 + bob(2), 120, this.t);
-    drawDog(g, 'leo', 96, 580 + bob(3), 110, this.t, { flip: true });
-    this.tag(g, 390, 492 + bob(2), 'MOCHI');
-    this.tag(g, 96, 602 + bob(3), 'LEO');
+    drawDog(g, 'mochi', 395, 438 + bob(2), 112, this.t);
+    this.tag(g, 395, 458 + bob(2), 'MOCHI');
+    drawDog(g, 'leo', 398, 592 + bob(3), 104, this.t, { flip: true });
+    this.tag(g, 398, 610 + bob(3), 'LEO');
 
     g.font = font(13, 500);
     g.fillStyle = 'rgba(255,243,221,0.85)';
@@ -87,20 +87,9 @@ export class TitleScene implements Scene {
     for (const b of this.btns) b.draw(g, this.t);
   }
 
-  private nameplate(g: CanvasRenderingContext2D, x: number, y: number, r: number, name: string, color: string): void {
-    g.fillStyle = color;
-    rr(g, x - r * 0.7, y + r * 1.72, r * 1.4, 26, 13);
-    g.fill();
-    g.fillStyle = '#fff';
-    g.font = font(15);
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText(name, x, y + r * 1.72 + 14);
-  }
-
-  private tag(g: CanvasRenderingContext2D, x: number, y: number, name: string): void {
+  private tag(g: CanvasRenderingContext2D, x: number, y: number, name: string, w = 76): void {
     g.fillStyle = 'rgba(36,16,23,0.7)';
-    rr(g, x - 38, y, 76, 24, 12);
+    rr(g, x - w / 2, y, w, 24, 12);
     g.fill();
     g.fillStyle = '#ffe9d6';
     g.font = font(14);

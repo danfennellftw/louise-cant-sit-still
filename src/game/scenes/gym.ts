@@ -42,6 +42,7 @@ export class GymScene implements Scene {
     this.phase = 'pick';
     this.e.showChill = true;
     this.e.chillDrain = 3;
+    this.e.leoPatrol.enabled = true; // dan says the pee theme is all-day
     this.buildPickButtons();
     this.e.toast('One workout is a warmup. Everyone knows this.');
   }
@@ -124,6 +125,8 @@ export class GymScene implements Scene {
 
   update(dt: number): void {
     this.t += dt;
+    // interrupts pause mid-set so the tap zones stay clean
+    this.e.leoPatrol.enabled = this.phase !== 'reps';
     this.lift = Math.max(0, this.lift - dt * 4);
     if (this.phase === 'reps' && this.t - this.lastTap > 2 && this.reps > 0 && Math.random() < dt * 0.5) {
       this.e.toast('The dumbbell is waiting. It has feelings.');

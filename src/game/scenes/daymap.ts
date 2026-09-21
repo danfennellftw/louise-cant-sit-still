@@ -17,7 +17,7 @@ export const CHAPTERS: Chapter[] = [
   { scene: 'work', label: 'The Sitting Olympics', place: 'home office', color: '#5b8c6e', phase: 'noon', time: '10 AM' },
   { scene: 'putter', label: 'The Puttering Hours', place: 'all over OC', color: '#e6a23c', phase: 'afternoon', time: '2 PM' },
   { scene: 'spin', label: 'Grit Cycle', place: 'Dana Point — always last', color: '#c0605e', phase: 'evening', time: '6:30 PM' },
-  { scene: 'winddown', label: 'Wind-down YouTube', place: 'the couch, finally', color: '#8e7cc3', phase: 'night', time: '9 PM' },
+  { scene: 'winddown', label: 'Wind-down YouTube', place: 'in bed, then dog duty', color: '#8e7cc3', phase: 'night', time: '9 PM' },
 ];
 
 export function travelLabel(c: Chapter): string {

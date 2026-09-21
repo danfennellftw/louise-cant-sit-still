@@ -119,18 +119,40 @@ if ((await g(`e.scene['phase']`)) !== 'stools') throw new Error('stuck before st
 await shot('04-stools');
 
 guard = 0;
-while ((await g(`e.scene['phase']`)) === 'stools' && guard++ < 200) {
-  const idx = await g(`e.scene['stoolIdx']`);
-  const puddles = await g(`JSON.stringify(e.scene['puddles'])`);
-  const pud = JSON.parse(puddles);
-  if (idx >= 0) {
-    await click(120 + idx * 120 + 30, 580);
-  } else if (pud.length > 0) {
-    await click(pud[0].x, pud[0].y + 34);
+while ((await g(`e.scene['phase']`)) === 'stools' && guard++ < 300) {
+  const st = JSON.parse(
+    await g(`JSON.stringify({idx: e.scene['stoolIdx'], pud: e.scene['puddles'], padT: e.scene['padT'], treatT: e.scene['treatT']})`),
+  );
+  if (st.treatT >= 0) {
+    await click(415, 570); // TREAT!
+  } else if (st.padT >= 0) {
+    // lawful pee in progress; do not interrupt
+  } else if (st.idx >= 0) {
+    await click(120 + st.idx * 120 + 30, 580);
+  } else if (st.pud.length > 0) {
+    await click(st.pud[0].x, st.pud[0].y + 34);
   }
   await page.waitForTimeout(120);
 }
-log(`stools defended (${guard} loops)`);
+log(`stools defended (${guard} loops, treats: ${await g(`e.state.stats.treatsGiven`)})`);
+if ((await g(`e.scene['phase']`)) !== 'garbage') throw new Error('stuck before garbage');
+await shot('04b-garbage');
+
+// garbage run: step forward when the next lane is clear
+guard = 0;
+while ((await g(`e.scene['phase']`)) === 'garbage' && guard++ < 300) {
+  const st = JSON.parse(
+    await g(`JSON.stringify({row: e.scene['louRow'], tossed: e.scene['tossed'], lanes: e.scene['lanes']})`),
+  );
+  if (st.tossed < 0 && st.row < 5) {
+    const next = st.row + 1;
+    const lane = next >= 1 && next <= 4 ? st.lanes[next - 1] : [];
+    const blocked = lane.some((c) => Math.abs(c.x - 240) < 130);
+    if (!blocked) await click(240, 420);
+  }
+  await page.waitForTimeout(90);
+}
+log(`garbage run done (honks: ${await g(`e.state.stats.honks`)})`);
 if ((await g(`e.scene['phase']`)) !== 'poop') throw new Error('stuck before poop');
 
 guard = 0;
@@ -192,7 +214,7 @@ await shot('07-putter-hub');
 async function openCard(idx) {
   const col = idx % 2;
   const row = Math.floor(idx / 2);
-  await click(24 + col * 220 + 106, 160 + row * 92 + 40);
+  await click(24 + col * 220 + 106, 148 + row * 88 + 39);
   await page.waitForTimeout(300);
 }
 
@@ -248,8 +270,27 @@ while ((await g(`e.scene['mini'] !== null`)) && guard++ < 60) {
 }
 log('bed made');
 
-// --- brown food (card 9)
+// --- organize kitchen cabinets (card 9)
 await openCard(9);
+await shot('08b-kitchen-cabinets');
+guard = 0;
+while ((await g(`e.scene['mini'] !== null`)) && guard++ < 40) {
+  const st = JSON.parse(
+    await g(`JSON.stringify({sel: e.scene['mini']['selected'], items: e.scene['mini']['items']})`),
+  );
+  if (st.sel) {
+    const [sx, sy] = [40 + st.sel.cat * 136 + 64, 265];
+    await click(sx, sy);
+  } else {
+    const it = st.items.find((q) => !q.placed);
+    if (it) await click(it.x, it.y);
+  }
+  await page.waitForTimeout(200);
+}
+log('kitchen cabinets organized');
+
+// --- brown food (card 11)
+await openCard(11);
 await shot('09-brownfood');
 guard = 0;
 while ((await g(`e.scene['mini'] !== null`)) && guard++ < 400) {
@@ -300,9 +341,28 @@ await travelThrough();
 await waitScene('winddown');
 await shot('12-winddown');
 for (let i = 0; i < 3; i++) {
-  await click(240, 225);
+  await click(240, 190);
   await page.waitForTimeout(500);
 }
+// dog bedtime closer
+await page.waitForFunction(() => window.__game['scene']['phase'] === 'dogduty', null, { timeout: 10000 });
+await shot('12b-dogduty');
+guard = 0;
+const bedSpot = (which) => (which === 'mochi' ? [120, 690] : [360, 690]);
+while ((await g(`e.scene['phase']`)) === 'dogduty' && guard++ < 60) {
+  const st = JSON.parse(
+    await g(`JSON.stringify({carrying: e.scene['carrying'] ? e.scene['carrying'].which : null, pups: e.scene['pups']})`),
+  );
+  if (st.carrying) {
+    const [bx, by] = bedSpot(st.carrying);
+    await click(bx, by);
+  } else {
+    const p = st.pups.find((q) => q.state === 'wandering');
+    if (p) await click(p.x, p.y - 30);
+  }
+  await page.waitForTimeout(250);
+}
+log('dogs tucked in downstairs');
 await waitScene('recap', 15000);
 await page.waitForTimeout(800);
 await shot('13-recap');

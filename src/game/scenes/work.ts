@@ -51,6 +51,7 @@ export class WorkScene implements Scene {
     this.standT = -1;
     this.e.showChill = true;
     this.e.chillDrain = 6; // sitting is her final boss
+    this.e.leoPatrol.enabled = true;
     this.e.toast('Work time. The chair braces itself.');
   }
 

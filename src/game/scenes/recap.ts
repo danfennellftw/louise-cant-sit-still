@@ -50,6 +50,8 @@ export class RecapScene implements Scene {
       ['kibble served', `${s.kibbleServed} scoops`],
       ['dog crimes handled', `${s.poopsBagged + s.peesMopped + (s.carpetScrubs > 0 ? 1 : 0)} incidents`],
       ['barstools defended', `${s.peesBlocked} saves`],
+      ['pee-pad treats awarded', `${s.treatsGiven}`],
+      ['parking lot honks survived', `${s.honks}`],
       ['gyms conquered', `${s.gymsVisited.length} of 3`],
       ['reps', `${s.reps}`],
       ['urges resisted / taken', `${s.urgesResisted} / ${s.urgesTaken}`],

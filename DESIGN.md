@@ -5,10 +5,12 @@ day, playable in ~5 minutes on a phone with one restless thumb.
 
 ## The locked day loop (canonical order — do not reorder)
 
-1. **Morning at the condo** — five beats of dog chaos:
+1. **Morning at the condo** — six beats of dog chaos:
    feed Mochi and Leo evenly, calm Leo's bark fit (he found a leaf), scrub
-   Mochi's carpet accident, defend the barstools from Leo's leg-lifts, then
-   Poop Patrol downstairs.
+   Mochi's carpet accident, defend the barstools from Leo's leg-lifts
+   (sometimes he chooses the pee pad instead — treat him within the window),
+   the Garbage Run through parking-lot traffic (honks are never a fail),
+   then Poop Patrol downstairs.
 2. **Gym** — pick Shredz (Ladera Ranch), Crunch (San Clemente), or
    EOS Fitness (Rancho Santa Margarita); alternating-tap reps; gym hopping
    is offered and encouraged.
@@ -22,13 +24,18 @@ day, playable in ~5 minutes on a phone with one restless thumb.
    skincare routine; hold still; she won't), 5-Step Skincare (bottles
    everywhere, mystery bottles get re-shelved — cabinet organizing is
    self-care), massage (whack-a-knot), make the bed (dogs sabotage round
-   two), Nina call, awkward AI-friend attempt. No jazz beat — "jazz" in
-   the brief just meant "other things" (per Dan).
+   two), Organize Kitchen Cabinets and Organize Bathroom Cabinets
+   (sort-to-shelf minis; Dan's shelf holds one deodorant), Nina call,
+   awkward AI-friend attempt. No jazz beat — "jazz" in the brief just
+   meant "other things" (per Dan).
 5. **Grit Cycle, Dana Point — always the last outing.** Rhythm spin finale;
    she waves at classmates, they never wave back, she finishes anyway.
    She always finishes.
-6. **Wind-down YouTube** — couch closer with Dan and the pups; the sit-still
-   meter clocks out; she finally sits still (asleep, but it counts).
+6. **Wind-down YouTube** — in bed with Dan, dogs piled on the blanket,
+   watching Michelle Choi / Greener Grass / Drew Binsky / skincare videos;
+   the sit-still meter clocks out; she finally sits still (asleep, but it
+   counts). Then the FINAL chore: carry Mochi and Leo downstairs to their
+   beds (Louise lost rock-paper-scissors; she always loses it).
 
 Then a recap screen with the day's receipts.
 
@@ -50,6 +57,12 @@ The **Sit-Still Meter** (top-left HUD) drains whenever she's idle. Emptying
 it is never a fail: the screen shakes, a roast line toasts, and it partially
 refills ("she did a lap"). Activity and dog cuddles refill it. Cuddling
 Mochi/Leo on travel screens is the intended healing loop.
+
+**Leo's pee is an all-day theme** (`src/game/pee.ts`): during gym, work,
+and the puttering hub, a corner interrupt occasionally appears — either a
+Leo puddle (mop in 3 taps) or a pee-pad success by either pup (tap TREAT
+within the window for hearts and meter refill). Interrupts never block
+progress and never spawn over mini-game UI.
 
 ## Art rules
 

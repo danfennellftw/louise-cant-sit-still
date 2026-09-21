@@ -29,6 +29,8 @@ const CARDS: CardInfo[] = [
   { id: 'nina', name: 'Call Nina', place: 'facetime', color: '#f8a5c2' },
   { id: 'ai', name: 'Make an AI Friend', place: 'the internet', color: '#7ed6df' },
   { id: 'skincare', name: '5-Step Skincare', place: 'the bottle cabinet', color: '#4a6fa5' },
+  { id: 'kcab', name: 'Organize Kitchen', place: 'cabinets, condo kitchen', color: '#6a8f5f' },
+  { id: 'bcab', name: 'Organize Bathroom', place: 'cabinets, NOT the skincare ones', color: '#5f7f8f' },
   { id: 'brown', name: 'Brown Food Dinner', place: 'the condo kitchen', color: '#a5713f', required: true },
 ];
 
@@ -70,9 +72,9 @@ export class PutterScene implements Scene {
       const row = Math.floor(i / 2);
       const b = new Button({
         x: 24 + col * 220,
-        y: 160 + row * 92,
+        y: 148 + row * 88,
         w: 212,
-        h: 80,
+        h: 78,
         label: doneList.includes(c.id) ? `${c.name} ✓` : c.name,
         sub: c.place,
         color: doneList.includes(c.id) ? '#9aa38b' : c.color,
@@ -138,6 +140,12 @@ export class PutterScene implements Scene {
       case 'skincare':
         this.mini = new Skincare(this.e, finish);
         break;
+      case 'kcab':
+        this.mini = new OrganizeCabinets(this.e, 'kitchen', finish);
+        break;
+      case 'bcab':
+        this.mini = new OrganizeCabinets(this.e, 'bathroom', finish);
+        break;
       case 'brown':
         this.mini = new BrownFood(this.e, finish);
         break;
@@ -148,6 +156,8 @@ export class PutterScene implements Scene {
 
   update(dt: number): void {
     this.t += dt;
+    // pee interrupts only on the hub, never over a mini-game's UI
+    this.e.leoPatrol.enabled = this.mini === null;
     if (this.mini) this.mini.update(dt);
   }
 
@@ -1439,6 +1449,273 @@ class Skincare implements Mini {
         }
       }
       return;
+    }
+  }
+}
+
+// ===================================================================
+// Organize Cabinets: tap an item, tap its shelf. Kitchen and bathroom
+// variants. One of her great joys. Dan's stuff gets exactly one shelf.
+// ===================================================================
+
+interface CabItem {
+  x: number;
+  y: number;
+  cat: number;
+  kind: string;
+  placed: boolean;
+}
+
+interface CabCfg {
+  title: string;
+  intro: string;
+  outro: string;
+  shelves: string[];
+  items: { cat: number; kind: string }[];
+  bg: (g: CanvasRenderingContext2D) => void;
+}
+
+function cabCfg(which: 'kitchen' | 'bathroom'): CabCfg {
+  if (which === 'kitchen') {
+    return {
+      title: 'ORGANIZE: KITCHEN CABINETS',
+      intro: 'The mugs have been anarchists for weeks. No longer.',
+      outro: 'Kitchen cabinets: museum grade. Do not touch anything, Dan.',
+      shelves: ['MUGS', 'PANS', 'TUPPERWARE'],
+      items: [
+        { cat: 0, kind: 'mug' },
+        { cat: 1, kind: 'pan' },
+        { cat: 2, kind: 'tup' },
+        { cat: 0, kind: 'mug' },
+        { cat: 2, kind: 'lid' },
+        { cat: 1, kind: 'pan' },
+        { cat: 2, kind: 'tup' },
+        { cat: 0, kind: 'mug' },
+      ],
+      bg: (g) => bgKitchen(g, 'afternoon'),
+    };
+  }
+  return {
+    title: 'ORGANIZE: BATHROOM CABINETS',
+    intro: 'Not the skincare cabinet. That one is already a shrine.',
+    outro: "Bathroom: sorted. Dan's shelf remains one (1) deodorant.",
+    shelves: ['HAIR', 'TOWELS', "DAN'S SHELF"],
+    items: [
+      { cat: 0, kind: 'dryer' },
+      { cat: 1, kind: 'towel' },
+      { cat: 0, kind: 'brush' },
+      { cat: 1, kind: 'towel' },
+      { cat: 2, kind: 'deo' },
+      { cat: 0, kind: 'brush' },
+      { cat: 1, kind: 'towel' },
+      { cat: 0, kind: 'dryer' },
+    ],
+    bg: (g) => bgSpa(g, 0),
+  };
+}
+
+class OrganizeCabinets implements Mini {
+  private t = 0;
+  private cfg: CabCfg;
+  private items: CabItem[] = [];
+  private selected: CabItem | null = null;
+  private endT = -1;
+
+  constructor(
+    private e: Engine,
+    which: 'kitchen' | 'bathroom',
+    private finish: (toast: string) => void,
+  ) {
+    this.cfg = cabCfg(which);
+    e.toast(this.cfg.intro);
+    const spots: [number, number][] = [];
+    for (let i = 0; i < 8; i++) spots.push([90 + (i % 4) * 100, 560 + Math.floor(i / 4) * 100]);
+    for (let i = spots.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [spots[i], spots[j]] = [spots[j], spots[i]];
+    }
+    this.items = this.cfg.items.map((it, i) => ({ x: spots[i][0], y: spots[i][1], cat: it.cat, kind: it.kind, placed: false }));
+  }
+
+  private shelfRect(i: number): [number, number, number, number] {
+    return [40 + i * 136, 210, 128, 110];
+  }
+
+  update(dt: number): void {
+    this.t += dt;
+    if (this.endT >= 0) {
+      this.endT += dt;
+      if (this.endT > 1.7) this.finish(this.cfg.outro);
+    }
+  }
+
+  draw(g: CanvasRenderingContext2D): void {
+    this.cfg.bg(g);
+    g.fillStyle = 'rgba(255,250,242,0.25)';
+    g.fillRect(0, 0, W, H);
+    headline(g, this.cfg.title, W / 2, 56, 21, '#4a2e33', 'rgba(255,255,255,0.9)');
+    g.font = font(14, 500);
+    g.fillStyle = '#4a2e33';
+    g.textAlign = 'center';
+    const left = this.items.filter((i) => !i.placed).length;
+    g.fillText(
+      this.selected ? 'now tap the right shelf' : `tap an item to pick it up — ${left} to go`,
+      W / 2,
+      92,
+    );
+    drawMeter(g, W / 2 - 100, 108, 200, 16, (8 - left) / 8, '#6a8f5f', `${8 - left} / 8`);
+
+    // shelves
+    for (let i = 0; i < 3; i++) {
+      const [sx, sy, sw, sh] = this.shelfRect(i);
+      g.fillStyle = 'rgba(138,107,82,0.92)';
+      rr(g, sx, sy, sw, sh, 10);
+      g.fill();
+      g.fillStyle = 'rgba(255,250,242,0.9)';
+      rr(g, sx + 8, sy + 8, sw - 16, sh - 40, 6);
+      g.fill();
+      g.fillStyle = '#fff';
+      g.font = font(13);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(this.cfg.shelves[i], sx + sw / 2, sy + sh - 16);
+      // stacked placed items
+      const placed = this.items.filter((it) => it.placed && it.cat === i);
+      placed.forEach((it, k) => {
+        this.drawItem(g, sx + 28 + (k % 3) * 36, sy + 30 + Math.floor(k / 3) * 30, it.kind, 0.8);
+      });
+    }
+
+    // loose items
+    for (const it of this.items) {
+      if (it.placed) continue;
+      const sel = this.selected === it;
+      const bob = sel ? Math.sin(this.t * 10) * 4 - 14 : Math.sin(this.t * 2 + it.x) * 2;
+      if (sel) {
+        g.strokeStyle = '#ff8c42';
+        g.lineWidth = 3;
+        g.beginPath();
+        g.arc(it.x, it.y + bob - 4, 34, 0, Math.PI * 2);
+        g.stroke();
+      }
+      this.drawItem(g, it.x, it.y + bob, it.kind, 1.15);
+    }
+
+    drawLouise(g, 430, 760, 140, this.t);
+    if (this.endT >= 0) headline(g, 'PRISTINE.', W / 2, 400, 34, '#fff3dd');
+  }
+
+  private drawItem(g: CanvasRenderingContext2D, x: number, y: number, kind: string, s: number): void {
+    g.save();
+    g.translate(x, y);
+    g.scale(s, s);
+    switch (kind) {
+      case 'mug':
+        g.fillStyle = '#c9705f';
+        rr(g, -12, -14, 24, 26, 5);
+        g.fill();
+        g.strokeStyle = '#c9705f';
+        g.lineWidth = 4;
+        g.beginPath();
+        g.arc(15, -2, 7, -1.2, 1.2);
+        g.stroke();
+        break;
+      case 'pan':
+        g.fillStyle = '#3c3a40';
+        g.beginPath();
+        g.ellipse(-4, 0, 16, 10, 0, 0, Math.PI * 2);
+        g.fill();
+        g.fillRect(10, -3, 18, 6);
+        break;
+      case 'tup':
+        g.fillStyle = 'rgba(180,220,240,0.9)';
+        rr(g, -14, -8, 28, 18, 4);
+        g.fill();
+        g.fillStyle = '#7ea8c4';
+        rr(g, -16, -12, 32, 7, 3);
+        g.fill();
+        break;
+      case 'lid':
+        g.fillStyle = '#7ea8c4';
+        rr(g, -16, -4, 32, 8, 4);
+        g.fill();
+        break;
+      case 'dryer':
+        g.fillStyle = '#8e7cc3';
+        g.beginPath();
+        g.ellipse(-4, -4, 13, 9, 0, 0, Math.PI * 2);
+        g.fill();
+        g.fillRect(-8, 2, 9, 14);
+        g.fillStyle = '#6a5c9e';
+        g.fillRect(-19, -8, 8, 8);
+        break;
+      case 'brush':
+        g.fillStyle = '#c9915f';
+        rr(g, -4, -16, 8, 32, 4);
+        g.fill();
+        g.fillStyle = '#8a6b52';
+        rr(g, -9, -16, 18, 14, 5);
+        g.fill();
+        break;
+      case 'towel':
+        g.fillStyle = '#d3e0e7';
+        rr(g, -15, -10, 30, 20, 5);
+        g.fill();
+        g.strokeStyle = 'rgba(120,150,170,0.6)';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(-15, -2);
+        g.lineTo(15, -2);
+        g.moveTo(-15, 4);
+        g.lineTo(15, 4);
+        g.stroke();
+        break;
+      case 'deo':
+        g.fillStyle = '#5f7f8f';
+        rr(g, -7, -14, 14, 28, 6);
+        g.fill();
+        g.fillStyle = '#eef4f6';
+        g.beginPath();
+        g.ellipse(0, -14, 7, 4, 0, 0, Math.PI * 2);
+        g.fill();
+        break;
+      default:
+        break;
+    }
+    g.restore();
+  }
+
+  down(x: number, y: number): void {
+    if (this.endT >= 0) return;
+    // shelf tap while holding an item
+    if (this.selected) {
+      for (let i = 0; i < 3; i++) {
+        const [sx, sy, sw, sh] = this.shelfRect(i);
+        if (x >= sx && x <= sx + sw && y >= sy && y <= sy + sh) {
+          if (this.selected.cat === i) {
+            this.selected.placed = true;
+            this.e.bumpChill(3);
+            this.e.fx.sparkle(sx + sw / 2, sy + 40, '#fff3b0');
+            this.selected = null;
+            if (this.items.every((it) => it.placed)) {
+              this.endT = 0;
+              this.e.fx.confetti(W / 2, 300, 35);
+            }
+          } else {
+            this.e.fx.puff(x, y, 'rgba(255,120,120,0.5)');
+            this.e.toast(i === 2 && this.cfg.shelves[2] === "DAN'S SHELF" ? "That is NOT Dan's. He owns three things." : 'Wrong shelf. The system is sacred.');
+          }
+          return;
+        }
+      }
+    }
+    // pick an item
+    for (const it of this.items) {
+      if (!it.placed && Math.hypot(x - it.x, y - it.y) < 40) {
+        this.selected = it;
+        this.e.fx.sparkle(it.x, it.y - 20, '#fff3b0');
+        return;
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Engine, Scene, W, rr } from '../engine';
+import { Engine, Scene, W, H, rr } from '../engine';
 import { bgCondoLiving, bgDownstairs } from '../art';
 import { drawLouise, drawDog, drawShadow } from '../sprites';
 import { font, drawMeter, headline } from '../ui';
@@ -16,16 +16,26 @@ interface Puddle {
   wipes: number;
 }
 
-type Phase = 'feed' | 'bark' | 'carpet' | 'stools' | 'poop' | 'done';
+type Phase = 'feed' | 'bark' | 'carpet' | 'stools' | 'garbage' | 'poop' | 'done';
 
 const PHASE_INTRO: Record<Phase, string> = {
   feed: '6:02 AM. The pups have unionized. Breakfast, now.',
   bark: 'Leo has discovered a leaf outside. DEFCON 1.',
   carpet: 'Mochi has redecorated the carpet. Again.',
   stools: 'Leo is eyeing the barstools. You know what he does.',
+  garbage: 'Garbage run. The parking lot is a hostile environment.',
   poop: 'Downstairs. The scene of the crime(s).',
   done: '',
 };
+
+interface Car {
+  x: number;
+  speed: number;
+  color: string;
+  dir: 1 | -1;
+}
+
+const CAR_COLORS = ['#7ea8c4', '#c46a6a', '#8a8794', '#c9b16a', '#6aa88a'];
 
 /**
  * Chapter 1 at the condo, five beats of dog chaos:
@@ -60,6 +70,13 @@ export class MorningScene implements Scene {
   private blocked = 0;
   private puddles: Puddle[] = [];
   private stoolWait = 1;
+  private padT = -1; // Leo mid-lawful-pee on the pad
+  private treatT = -1; // treat reward window
+
+  // garbage run
+  private louRow = 0;
+  private lanes: Car[][] = [];
+  private tossed = -1;
 
   // poop patrol
   private poops: Poop[] = [];
@@ -98,6 +115,20 @@ export class MorningScene implements Scene {
       this.puddles = [];
       this.stoolIdx = -1;
       this.stoolWait = 1.2;
+      this.padT = -1;
+      this.treatT = -1;
+    } else if (p === 'garbage') {
+      this.louRow = 0;
+      this.tossed = -1;
+      this.lanes = [];
+      for (let i = 0; i < 4; i++) {
+        const dir: 1 | -1 = i % 2 === 0 ? 1 : -1;
+        const speed = 65 + Math.random() * 55 + i * 8;
+        this.lanes.push([
+          { x: Math.random() * W, speed, color: CAR_COLORS[(i * 2) % CAR_COLORS.length], dir },
+          { x: Math.random() * W + W * 0.55, speed, color: CAR_COLORS[(i * 2 + 1) % CAR_COLORS.length], dir },
+        ]);
+      }
     } else if (p === 'poop') {
       this.poopTimer = 28;
       this.poops = [];
@@ -123,6 +154,9 @@ export class MorningScene implements Scene {
         break;
       case 'stools':
         this.updateStools(dt);
+        break;
+      case 'garbage':
+        this.updateGarbage(dt);
         break;
       case 'poop': {
         this.poopTimer = Math.max(0, this.poopTimer - dt);
@@ -163,6 +197,9 @@ export class MorningScene implements Scene {
       case 'stools':
         this.drawStools(g);
         break;
+      case 'garbage':
+        this.drawGarbage(g);
+        break;
       default:
         this.drawPoop(g);
         break;
@@ -183,6 +220,9 @@ export class MorningScene implements Scene {
         break;
       case 'stools':
         this.stoolTap(x, y);
+        break;
+      case 'garbage':
+        this.garbageTap();
         break;
       case 'poop':
         this.poopTap(x, y);
@@ -452,11 +492,31 @@ export class MorningScene implements Scene {
   }
 
   private updateStools(dt: number): void {
+    // lawful pee in progress on the pad
+    if (this.padT >= 0) {
+      this.padT -= dt;
+      if (this.padT < 0) {
+        this.treatT = 3.2;
+        this.e.toast('Leo used the PEE PAD. Witnessed. Documented. TREAT HIM.');
+      }
+      return;
+    }
+    if (this.treatT >= 0) {
+      this.treatT -= dt;
+      if (this.treatT < 0) this.e.toast('Treat window missed. He will unionize again.');
+      return;
+    }
     if (this.stoolIdx < 0) {
       this.stoolWait -= dt;
       if (this.stoolWait <= 0) {
-        this.stoolIdx = Math.floor(Math.random() * 3);
-        this.peeCountdown = 1.5;
+        if (Math.random() < 0.3) {
+          // sometimes he chooses CORRECTLY
+          this.padT = 1.6;
+          this.e.toast('Wait. Leo is heading for... the pee pad?!');
+        } else {
+          this.stoolIdx = Math.floor(Math.random() * 3);
+          this.peeCountdown = 1.5;
+        }
       }
     } else {
       this.peeCountdown -= dt;
@@ -473,7 +533,165 @@ export class MorningScene implements Scene {
       this.e.bumpChill(10);
       this.e.fx.confetti(W / 2, 400, 30);
       this.e.toast('Barstools defended. Leo respects nothing but speed.');
-      this.setPhase('poop');
+      this.setPhase('garbage');
+    }
+  }
+
+  // ------------------------------------------------------- garbage run
+
+  private rowY(i: number): number {
+    return 690 - i * 88;
+  }
+
+  private updateGarbage(dt: number): void {
+    for (const lane of this.lanes) {
+      for (const c of lane) {
+        c.x += c.speed * c.dir * dt;
+        if (c.dir === 1 && c.x > W + 90) c.x = -90 - Math.random() * 120;
+        if (c.dir === -1 && c.x < -90) c.x = W + 90 + Math.random() * 120;
+      }
+    }
+    if (this.tossed >= 0) {
+      this.tossed += dt;
+      if (this.tossed > 1.6) this.setPhase('poop');
+    }
+  }
+
+  private drawGarbage(g: CanvasRenderingContext2D): void {
+    // parking lot
+    g.fillStyle = '#6e6a72';
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = '#7a7580';
+    g.fillRect(0, 0, W, 200);
+    // lane markings
+    g.strokeStyle = 'rgba(255,255,255,0.35)';
+    g.lineWidth = 4;
+    g.setLineDash([26, 22]);
+    for (let i = 1; i <= 4; i++) {
+      const y = this.rowY(i);
+      g.beginPath();
+      g.moveTo(0, y - 44);
+      g.lineTo(W, y - 44);
+      g.moveTo(0, y + 44);
+      g.lineTo(W, y + 44);
+      g.stroke();
+    }
+    g.setLineDash([]);
+
+    headline(g, 'GARBAGE RUN', W / 2, 46, 28, '#fff3dd', 'rgba(40,35,45,0.85)');
+    g.font = font(14, 500);
+    g.fillStyle = 'rgba(255,255,255,0.9)';
+    g.textAlign = 'center';
+    g.fillText('tap to step forward — mind the parking lot traffic', W / 2, 80);
+
+    // dumpster
+    g.fillStyle = '#3f7d4e';
+    rr(g, W / 2 - 90, 150, 180, 76, 10);
+    g.fill();
+    g.fillStyle = '#356a42';
+    rr(g, W / 2 - 96, 138, 192, 22, 8);
+    g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.7)';
+    g.font = font(15);
+    g.fillText('DUMPSTER', W / 2, 196);
+
+    // cars
+    for (let i = 0; i < 4; i++) {
+      const y = this.rowY(i + 1);
+      for (const c of this.lanes[i]) this.drawCar(g, c.x, y, c.color, c.dir);
+    }
+
+    // Louise + bag (or the toss)
+    const ly = this.rowY(Math.min(this.louRow, 5));
+    if (this.tossed >= 0) {
+      const f = Math.min(1, this.tossed / 0.7);
+      const bx = W / 2 + 60 - f * 60;
+      const by = ly - 120 - Math.sin(f * Math.PI) * 110 + f * (170 - ly + 120);
+      g.fillStyle = '#2c2c34';
+      g.beginPath();
+      g.arc(bx, by, 16, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#2c2c34';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(bx - 6, by - 14);
+      g.lineTo(bx, by - 22);
+      g.lineTo(bx + 6, by - 14);
+      g.stroke();
+      drawLouise(g, W / 2, this.rowY(5) + 40, 190, this.t, { rot: -0.08 });
+      headline(g, 'YEET', W / 2 + 110, ly - 160, 26, '#fff3b0');
+    } else {
+      drawLouise(g, W / 2, ly, 185, this.t);
+      // the bag
+      g.fillStyle = '#2c2c34';
+      g.beginPath();
+      g.ellipse(W / 2 + 52, ly - 34, 18, 22, 0.15, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#2c2c34';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(W / 2 + 46, ly - 54);
+      g.lineTo(W / 2 + 52, ly - 62);
+      g.lineTo(W / 2 + 58, ly - 54);
+      g.stroke();
+    }
+
+    // pups supervising from the curb
+    drawDog(g, 'mochi', 40, 760, 66, this.t);
+    drawDog(g, 'leo', 440, 764, 60, this.t, { flip: true });
+  }
+
+  private drawCar(g: CanvasRenderingContext2D, x: number, y: number, color: string, dir: 1 | -1): void {
+    g.save();
+    g.translate(x, y);
+    g.scale(dir, 1);
+    // body
+    g.fillStyle = color;
+    rr(g, -55, -34, 110, 40, 14);
+    g.fill();
+    rr(g, -34, -52, 62, 26, 12);
+    g.fill();
+    // windows
+    g.fillStyle = 'rgba(220,240,250,0.85)';
+    rr(g, -26, -48, 22, 18, 6);
+    g.fill();
+    rr(g, 2, -48, 20, 18, 6);
+    g.fill();
+    // wheels
+    g.fillStyle = '#26242a';
+    g.beginPath();
+    g.arc(-32, 8, 12, 0, Math.PI * 2);
+    g.arc(34, 8, 12, 0, Math.PI * 2);
+    g.fill();
+    // headlight
+    g.fillStyle = '#fff3b0';
+    g.beginPath();
+    g.arc(52, -18, 5, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  }
+
+  private garbageTap(): void {
+    if (this.tossed >= 0 || this.louRow >= 5) return;
+    const next = this.louRow + 1;
+    if (next >= 1 && next <= 4) {
+      const lane = this.lanes[next - 1];
+      const blockedBy = lane.find((c) => Math.abs(c.x - W / 2) < 110);
+      if (blockedBy) {
+        this.e.state.stats.honks++;
+        this.e.shake = 6;
+        this.e.fx.puff(W / 2, this.rowY(next), 'rgba(255,243,176,0.7)');
+        this.e.toast(['HONK. Rude.', 'HONK HONK. She waves apologetically.', 'The Altima yields for no one.'][this.e.state.stats.honks % 3]);
+        return;
+      }
+    }
+    this.louRow = next;
+    this.e.bumpChill(2);
+    this.e.fx.sparkle(W / 2, this.rowY(next), 'rgba(255,255,255,0.7)');
+    if (this.louRow >= 5) {
+      this.tossed = 0;
+      this.e.fx.confetti(W / 2, 220, 30);
+      this.e.toast('Bag delivered. Three-pointer. Nobody saw it. Tragic.');
     }
   }
 
@@ -518,6 +736,53 @@ export class MorningScene implements Scene {
       g.fillText('tap to mop', p.x, p.y + 58);
     }
 
+    // the pee pad in the corner (always present; occasionally honored)
+    const padX = 415;
+    const padY = 640;
+    g.fillStyle = '#dfeef5';
+    rr(g, padX - 42, padY - 16, 84, 28, 8);
+    g.fill();
+    g.strokeStyle = '#9db8c4';
+    g.lineWidth = 2;
+    rr(g, padX - 34, padY - 11, 68, 18, 5);
+    g.stroke();
+    g.fillStyle = 'rgba(74,46,51,0.6)';
+    g.font = font(10, 600);
+    g.textAlign = 'center';
+    g.fillText('pee pad', padX, padY + 26);
+
+    if (this.padT >= 0 || this.treatT >= 0) {
+      drawDog(g, 'leo', padX, padY + 4, 95, this.t, { flip: true, rot: Math.sin(this.t * 6) * 0.04 });
+      if (this.padT >= 0) {
+        const pulse = 1 + Math.sin(this.t * 12) * 0.1;
+        g.save();
+        g.translate(padX, padY - 96);
+        g.scale(pulse, pulse);
+        g.fillStyle = '#5b8c6e';
+        g.beginPath();
+        g.arc(0, 0, 18, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#fff';
+        g.font = font(22);
+        g.textBaseline = 'middle';
+        g.fillText('!', 0, 1);
+        g.restore();
+      } else {
+        const pulse = 1 + Math.sin(this.t * 8) * 0.06;
+        g.save();
+        g.translate(padX, padY - 104);
+        g.scale(pulse, pulse);
+        g.fillStyle = '#5b8c6e';
+        rr(g, -52, -24, 104, 48, 16);
+        g.fill();
+        g.fillStyle = '#fff';
+        g.font = font(19);
+        g.textBaseline = 'middle';
+        g.fillText('TREAT!', 0, 1);
+        g.restore();
+      }
+    }
+
     if (this.stoolIdx >= 0) {
       const x = this.stoolX(this.stoolIdx);
       const urgency = 1 - this.peeCountdown / 1.5;
@@ -543,6 +808,19 @@ export class MorningScene implements Scene {
   }
 
   private stoolTap(x: number, y: number): void {
+    // treat reward / lawful pee interactions at the pad
+    if (this.treatT >= 0 && Math.hypot(x - 415, y - 570) < 110) {
+      this.treatT = -1;
+      this.e.state.stats.treatsGiven++;
+      this.e.bumpChill(12);
+      this.e.fx.hearts(415, 560, 10);
+      this.e.toast('Treat delivered. Positive reinforcement Louise-style: instant.');
+      return;
+    }
+    if (this.padT >= 0 && Math.hypot(x - 415, y - 600) < 100) {
+      this.e.toast('DO NOT interrupt a lawful pee. He is doing so well.');
+      return;
+    }
     if (this.stoolIdx >= 0) {
       const lx = this.stoolX(this.stoolIdx) + 30;
       if (Math.hypot(x - lx, y - 580) < 80) {

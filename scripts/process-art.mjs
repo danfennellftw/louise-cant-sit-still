@@ -136,11 +136,13 @@ async function cutout(input, out, { region, maxH, tol = 24 }) {
 // sheets are two panels: full body (left) and portrait (right)
 const SHEET = { w: 1024, h: 579 };
 const left = { left: 0, top: 0, width: 472, height: SHEET.h };
+// Dan's sheet has dark divider pixels reaching further left; crop tighter
+const danLeft = { left: 40, top: 0, width: 400, height: SHEET.h };
 const right = { left: 534, top: 0, width: SHEET.w - 534, height: SHEET.h };
 
 await cutout('art-src/louise-sheet-a.png', 'louise.png', { region: left, maxH: 560 });
 await cutout('art-src/louise-sheet-a.png', 'louise-face.png', { region: right, maxH: 512 });
-await cutout('art-src/dan-sheet-a.png', 'dan.png', { region: left, maxH: 560 });
+await cutout('art-src/dan-sheet-a.png', 'dan.png', { region: danLeft, maxH: 560 });
 await cutout('art-src/dan-sheet-a.png', 'dan-face.png', { region: right, maxH: 512 });
 await cutout('art-src/mochi-a.png', 'mochi.png', { maxH: 460 });
 await cutout('art-src/leo-a.png', 'leo.png', { maxH: 460 });

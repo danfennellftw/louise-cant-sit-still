@@ -23,6 +23,8 @@ export interface Stats {
   putterDone: string[];
   skincareSteps: number;
   videosWatched: number;
+  treatsGiven: number;
+  honks: number;
 }
 
 function freshStats(): Stats {
@@ -51,6 +53,8 @@ function freshStats(): Stats {
     putterDone: [],
     skincareSteps: 0,
     videosWatched: 0,
+    treatsGiven: 0,
+    honks: 0,
   };
 }
 

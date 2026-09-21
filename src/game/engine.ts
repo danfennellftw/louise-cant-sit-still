@@ -1,5 +1,6 @@
 import { GameState } from './state';
 import { Fx } from './fx';
+import { LeoPatrol } from './pee';
 
 export const W = 480;
 export const H = 800;
@@ -33,6 +34,7 @@ export class Engine {
   readonly g: CanvasRenderingContext2D;
   readonly state = new GameState();
   readonly fx = new Fx();
+  readonly leoPatrol = new LeoPatrol(this);
 
   time = 0;
   shake = 0;
@@ -82,6 +84,7 @@ export class Engine {
           this.go('daymap');
           return;
         }
+        if (this.leoPatrol.tryTap(x, y)) return;
         this.scene?.down?.(x, y);
       }
     });
@@ -119,6 +122,8 @@ export class Engine {
     this.scene = s;
     this.sceneName = name;
     this.fx.clear();
+    this.leoPatrol.enabled = false;
+    this.leoPatrol.reset();
     s.enter();
   }
 
@@ -163,6 +168,7 @@ export class Engine {
     }
 
     if (this.scene && this.fade < 0.95) this.scene.update(dt);
+    this.leoPatrol.update(dt);
     this.fx.update(dt);
     this.shake = Math.max(0, this.shake - dt * 16);
 
@@ -186,6 +192,7 @@ export class Engine {
       g.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
     }
     if (this.scene) this.scene.draw(g);
+    this.leoPatrol.draw(g);
     this.fx.draw(g);
     g.restore();
 
