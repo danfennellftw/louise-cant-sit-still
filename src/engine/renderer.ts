@@ -21,6 +21,9 @@ export class Renderer {
   private frameTimes: number[] = [];
   private lowFpsFor = 0;
   onQualityChange?: (l: QualityLevel) => void;
+  onContextLost?: () => void;
+  onContextRestored?: () => void;
+  contextLost = false;
   private sunOffset = new THREE.Vector3(6, 12, 5);
 
   constructor(canvas: HTMLCanvasElement) {
@@ -49,6 +52,17 @@ export class Renderer {
     this.sun.shadow.radius = 4;
     this.scene.add(this.sun, this.sun.target);
     this.applyLevel();
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this.contextLost = true;
+      console.warn('[renderer] WebGL context lost');
+      this.onContextLost?.();
+    });
+    canvas.addEventListener('webglcontextrestored', () => {
+      this.contextLost = false;
+      console.info('[renderer] WebGL context restored');
+      this.onContextRestored?.();
+    });
     window.addEventListener('resize', () => this.resize());
     this.resize();
   }
@@ -57,6 +71,13 @@ export class Renderer {
     this.setting = s;
     saveQualitySetting(s);
     this.level = initialLevel(s);
+    this.applyLevel();
+  }
+
+  /** Drop to a lighter profile for this session without changing the saved setting. */
+  forceLevel(l: QualityLevel) {
+    if (this.level === l) return;
+    this.level = l;
     this.applyLevel();
   }
 
@@ -131,6 +152,7 @@ export class Renderer {
   }
 
   render(dt: number) {
+    if (this.contextLost) return;
     if (this.composer) this.composer.render(dt);
     else this.gl.render(this.scene, this.camera);
     this.trackPerf(dt);

@@ -1631,3 +1631,31 @@ button {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* ---------- recoverable error (above #fade) ---------- */
+.recover-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: calc(16px + var(--safe-t)) 18px calc(16px + var(--safe-b));
+  background: radial-gradient(circle at 50% 45%, rgba(61, 42, 66, 0.92), rgba(26, 15, 28, 0.97));
+  animation: fadein 0.25s;
+}
+.card.recover {
+  max-width: 340px;
+  text-align: center;
+}
+.recover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+.card.recover .cta.secondary {
+  margin-top: 0;
+  color: #5a2b2b;
+  background: rgba(90, 43, 43, 0.06);
+  box-shadow: inset 0 0 0 2px rgba(90, 43, 43, 0.25);
+}

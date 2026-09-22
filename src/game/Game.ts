@@ -138,6 +138,20 @@ export class Game {
       if (document.hidden && this.phase === 'play') this.togglePause();
     });
     this.r.onQualityChange = () => this.set?.particles.forEach((p) => (p.pixelScale = this.r.pixelScale));
+    this.ui.onFadeStuck = () => this.stuck('The scene took too long to appear.');
+    this.r.onContextLost = () => {
+      if (this.phase === 'play') this.phase = 'paused';
+      this.ui.recover('Graphics hiccup', 'Your phone paused the 3D view to save memory. Hang on, it usually comes right back.', [
+        { label: 'Reload the game', run: () => location.reload() },
+      ]);
+    };
+    this.r.onContextRestored = () => {
+      this.ui.clearRecover();
+      this.r.forceLevel('low');
+      void this.enterSet(this.setId, true);
+    };
+    window.addEventListener('unhandledrejection', (e) => this.onFatal(e.reason));
+    window.addEventListener('error', (e) => this.onFatal(e.error ?? e.message));
     requestAnimationFrame((t) => this.frame(t));
   }
 
@@ -258,6 +272,7 @@ export class Game {
     this.tapTarget = null;
     this.pendingStop = null;
     this.gatesHit.clear();
+    this.exitArmed = false;
     const first = id === 'condo' && !this.save.tutorial;
     this.dogs.reset(set, this.louise.root.position, first ? 40 : this.chaosDelay);
     this.audio.setAmbience(set.ambience);
@@ -280,6 +295,7 @@ export class Game {
    * inside the GLB become extra invisible colliders.
    */
   private async tryEnvironmentOverride(id: SetId, set: BuiltSet) {
+    if (!__ENV_GLBS__.includes(id)) return;
     const gltf = await loadOptionalGlb(`environments/${id}.glb`);
     if (!gltf || this.set !== set) return;
     const scene = gltf.scene;
@@ -305,11 +321,14 @@ export class Game {
 
   private async enterSet(id: SetId, fadeIn = true) {
     this.phase = 'intro';
-    if (fadeIn || this.set?.root && this.setId !== id) {
-      await this.ui.fade(true, true);
+    this.ui.clearRecover();
+    if (fadeIn || (this.set?.root && this.setId !== id)) await this.ui.fade(true, true);
+    try {
       this.loadSetNow(id);
-    } else {
-      this.loadSetNow(id);
+    } catch (err) {
+      console.error(`[game] failed to build set "${id}"`, err);
+      this.setFailed(id);
+      return;
     }
     this.meter = Math.max(this.meter, 85);
     this.still = 0;
@@ -342,6 +361,48 @@ export class Game {
     }
   }
 
+  /** A set failed to build: offer a lighter retry, the map, or a reload — never a blank screen. */
+  private setFailed(id: SetId) {
+    this.phase = 'transition';
+    this.ui.showHud(false);
+    this.ui.clearScreens();
+    this.ui.recover('That scene didn’t load', `Something went wrong setting up ${SETS[id].title}. Your progress is saved.`, [
+      {
+        label: 'Try again',
+        primary: true,
+        run: () => {
+          this.r.forceLevel('low');
+          void this.enterSet(id, true);
+        },
+      },
+      { label: 'Back to the day map', run: () => void this.pickNext() },
+      { label: 'Reload the game', run: () => location.reload() },
+    ]);
+  }
+
+  private stuck(why: string) {
+    if (this.phase === 'play' || this.phase === 'title' || this.phase === 'finale') {
+      void this.ui.fade(false);
+      return;
+    }
+    console.error(`[game] transition stuck in phase "${this.phase}": ${why}`);
+    this.ui.clearScreens();
+    this.ui.recover('Louise got lost between stops', `${why} Your progress is saved.`, [
+      {
+        label: 'Continue',
+        primary: true,
+        run: () => (this.set && !this.save.done.includes(this.setId) ? void this.enterSet(this.setId, true) : void this.pickNext()),
+      },
+      { label: 'Open the day map', run: () => void this.pickNext() },
+      { label: 'Reload the game', run: () => location.reload() },
+    ]);
+  }
+
+  private onFatal(err: unknown) {
+    console.error('[game] uncaught error', err);
+    if (this.phase === 'transition' || this.phase === 'intro' || this.ui.fadeOn) this.stuck('A scene change hit an error.');
+  }
+
   private async leaveSet() {
     if (this.phase !== 'play') return;
     this.phase = 'transition';
@@ -365,6 +426,8 @@ export class Game {
     const avail = available(done);
     if (!avail.length) return this.finale();
     this.ui.showHud(false);
+    // the map lives under #fade in the stacking order, so the fade must lift first
+    await this.ui.fade(false);
     const next = await showDayMap(this.ui.screens, this.audio, done, this.setId, false);
     if (!next) return;
     if (isFirstOfAct(next, done)) {
@@ -515,6 +578,9 @@ export class Game {
     this.ui.edgeArrow(0, 0, 0, false);
     this.breadcrumbs.forEach((b) => ((b.material as THREE.MeshBasicMaterial).opacity = 0));
   }
+
+  /** Spawns sit next to the door, so the exit only arms once she has walked away from it. */
+  private exitArmed = false;
 
   private requiredLeft() {
     return this.set ? this.set.stops.filter((s) => !s.optional && !this.stopsDone.has(s.id)).length : 0;
@@ -909,7 +975,8 @@ export class Game {
     // exit
     if (set.exit) {
       const d = Math.hypot(set.exit.x - L.x, set.exit.z - L.z);
-      if (d < 1.2) {
+      if (d > 2) this.exitArmed = true;
+      if (d < 1.2 && this.exitArmed) {
         if (this.requiredLeft() === 0) void this.leaveSet();
         else if (this.t > this.exitNagT) {
           this.exitNagT = this.t + 4;

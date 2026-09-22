@@ -257,11 +257,47 @@ export class UI {
   }
 
   /* ---------- transitions ---------- */
+  /** Called if the fade has covered the screen for too long (a transition hung). */
+  onFadeStuck?: () => void;
+  private fadeWatch = 0;
+
   fade(on: boolean, loading = false) {
     this.fadeEl.classList.toggle('loading', loading);
     this.fadeEl.classList.remove('boot');
     this.fadeEl.classList.toggle('on', on);
+    clearTimeout(this.fadeWatch);
+    if (on) this.fadeWatch = window.setTimeout(() => this.onFadeStuck?.(), 15000);
     return new Promise<void>((r) => setTimeout(r, 470));
+  }
+
+  get fadeOn() {
+    return this.fadeEl.classList.contains('on');
+  }
+
+  /** Recoverable error card; sits above the fade so it can never be hidden by it. */
+  recover(title: string, body: string, actions: { label: string; primary?: boolean; run: () => void }[]) {
+    clearTimeout(this.fadeWatch);
+    this.fadeEl.classList.remove('on', 'loading', 'boot');
+    document.querySelector('.recover-layer')?.remove();
+    const el = document.createElement('div');
+    el.className = 'recover-layer';
+    el.innerHTML = `<div class="card recover"><h2>${esc(title)}</h2><p>${esc(body)}</p><div class="recover-actions"></div></div>`;
+    const row = el.querySelector('.recover-actions')!;
+    actions.forEach((a) => {
+      const b = document.createElement('button');
+      b.className = a.primary ? 'cta' : 'cta secondary';
+      b.textContent = a.label;
+      b.onclick = () => {
+        el.remove();
+        a.run();
+      };
+      row.appendChild(b);
+    });
+    document.body.appendChild(el);
+  }
+
+  clearRecover() {
+    document.querySelector('.recover-layer')?.remove();
   }
 
   clearScreens() {
