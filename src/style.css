@@ -1658,3 +1658,114 @@ button {
   background: rgba(90, 43, 43, 0.06);
   box-shadow: inset 0 0 0 2px rgba(90, 43, 43, 0.25);
 }
+
+/* ---------- clean mini (dog accidents) ---------- */
+.clean-floor {
+  position: relative;
+  width: min(88vw, 420px);
+  height: min(52vw, 250px);
+  margin: 6px auto 0;
+  border-radius: 20px;
+  overflow: hidden;
+  touch-action: none;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.06) 1px, transparent 1px) 0 0 / 25% 100%,
+    repeating-linear-gradient(180deg, #d9a878 0 38px, #cf9c6b 38px 40px),
+    #d9a878;
+  box-shadow: inset 0 0 0 3px rgba(255, 246, 236, 0.5), 0 12px 30px rgba(0, 0, 0, 0.3);
+}
+.clean-floor .mess {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border: 0;
+  padding: 0;
+  background: none;
+  transition: transform 0.25s, opacity 0.25s;
+  cursor: pointer;
+}
+.clean-floor .mess.poop {
+  width: 46px;
+  height: 42px;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.3));
+  animation: poopbob 1.4s ease-in-out infinite;
+}
+@keyframes poopbob {
+  50% {
+    filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.3)) drop-shadow(0 0 8px rgba(255, 240, 180, 0.9));
+  }
+}
+.clean-floor .mess.poop svg {
+  width: 100%;
+  height: 100%;
+}
+.clean-floor .mess.pee {
+  width: 128px;
+  height: 78px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 45% 45%, rgba(255, 250, 200, 0.9) 0 8%, rgba(236, 206, 74, 0.85) 20%, rgba(226, 190, 60, 0.6) 58%, rgba(226, 190, 60, 0) 72%);
+}
+.clean-floor .mess.pad {
+  width: 104px;
+  height: 104px;
+  border-radius: 10px;
+  background: radial-gradient(circle at 55% 55%, rgba(226, 190, 60, 0.75) 0 26%, rgba(226, 190, 60, 0) 44%), repeating-linear-gradient(45deg, #eef6fb 0 10px, #dfeef7 10px 12px);
+  box-shadow: 0 0 0 5px #bcd9ec, 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+.clean-floor .mess.pad.fresh {
+  background: repeating-linear-gradient(45deg, #ffffff 0 10px, #eef6fb 10px 12px);
+  animation: coachin 0.4s;
+}
+.clean-floor .mess.gone {
+  transform: translate(-50%, -50%) scale(0) !important;
+  opacity: 0 !important;
+}
+.clean-floor.leg .clean-leg {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  height: 70%;
+  transform: translateX(-50%);
+  border-radius: 0 0 8px 8px;
+}
+.clean-floor.leg.piano .clean-leg {
+  width: 44px;
+  background: linear-gradient(90deg, #0d0d0f, #3a3a40 40%, #0d0d0f);
+  box-shadow: 0 6px 0 -2px #222, 0 0 0 2px rgba(255, 255, 255, 0.08) inset;
+}
+.clean-floor.leg.stool .clean-leg {
+  width: 12px;
+  background: linear-gradient(90deg, #1b1b1d, #6a6a70 50%, #1b1b1d);
+}
+.clean-floor.leg .clean-leg::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 60%;
+  height: 34%;
+  transform: translateX(-50%);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(236, 206, 74, 0), rgba(236, 206, 74, 0.7));
+}
+.clean-sponge {
+  position: absolute;
+  width: 54px;
+  height: 36px;
+  border-radius: 10px;
+  background: repeating-radial-gradient(circle at 30% 40%, #ffd166 0 3px, #f2c14e 3px 5px);
+  box-shadow: 0 -8px 0 #3b8f7a inset, 0 4px 10px rgba(0, 0, 0, 0.25);
+  transform: translate(-50%, -50%) rotate(-12deg) scale(0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.clean-sponge.on {
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(-12deg) scale(1);
+}
+.clean-tip {
+  margin-top: 12px;
+  text-align: center;
+  font-weight: 700;
+  color: #5a2b2b;
+}

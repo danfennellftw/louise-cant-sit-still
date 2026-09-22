@@ -10,7 +10,7 @@ import {
   bed, nightstand, dresser, tv, sofa, boucleChair, mosaicTable, coffeeTable, kitchenRun, fridge, stove, island, dogBed,
   steak, drumstick, potato, plate,
 } from '../../art/props/home';
-import { patio, deskNook, brassFloorLamp, flowerVase } from './condoDressing';
+import { patio, deskNook, brassFloorLamp, flowerVase, uprightPiano, mochiMess } from './condoDressing';
 import { Actor } from '../../art/characters/actor';
 import { DAN_LOOK } from '../../art/characters/human';
 import type { BuiltSet, StopDef, StopHooks } from '../types';
@@ -69,6 +69,8 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
   plant(ctx.root, 3.0, -3.95, 1.2, '#e6ddd0', 'fig');
   ctx.solidAt(3.0, -3.95, 0.5, 0.5);
   deskNook(ctx, 3.0, 2.7, night);
+  const piano = uprightPiano(ctx, -3.6, -0.95);
+  const mess = night ? null : mochiMess(ctx, [-3.25, 3.45], [-2.5, 3.05], [[-2.95, 2.5], [-1.95, 3.75]]);
   dogBed(ctx.root, -1.6, 2.7, '#e9dcc6');
   dogBed(ctx.root, -0.4, 3.2, '#c98a5a');
   ceilingFan(ctx, -0.4, 2.85, -1.2, night ? 1 : 2.4);
@@ -136,6 +138,14 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
         });
       },
       reset: () => b.setMess(1),
+    };
+    hooks.mochi = {
+      done: () => {
+        if (!mess) return;
+        const m = mess;
+        void tweens.to(0.4, (k) => m.scale.setScalar(1 - k * 0.9)).then(() => (m.visible = false));
+      },
+      reset: () => mess && ((mess.visible = true), mess.scale.setScalar(1)),
     };
     hooks.cabinets = {
       start: () => k.uppers.forEach((d, i) => void tweens.to(0.45, (e) => (d.rotation.y = -1.7 * e), easeOutBack, i * 0.06)),
@@ -217,6 +227,19 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
         refill: 35, hearts: 4, color: '#f2c46d', push: { dist: 4.6, height: 3.9, yaw: 0.35 },
       },
       {
+        id: 'mochi', label: 'Clean up Mochi’s accidents', verb: 'Clean up', pos: [-2.6, 3.0], stand: [-2.05, 2.35], face: -0.7, pose: 'work', radius: 1.2,
+        mini: {
+          type: 'clean', title: 'Mochi missed the pad (again)', hint: 'Tap the poop to bag it · rub the puddle · tap the pad to swap it',
+          mess: ['poop', 'poop', 'pee', 'pad'],
+        },
+        intro: [
+          { who: 'louise', text: 'Mochi. Baby. The pad was RIGHT THERE.' },
+          { who: 'mochi', text: '*proud little wag*' },
+        ],
+        outro: [{ who: 'narrator', text: 'Floor: spotless. Pad: fresh. Mochi celebrates by drinking an entire bowl of water. See you in twenty minutes.' }],
+        refill: 26, hearts: 3, color: '#f2d36b', push: { dist: 3.8, height: 3.6, yaw: 0.35 },
+      },
+      {
         id: 'desk', label: 'Plan the day at the desk', verb: 'Plan', pos: [2.05, 2.7], stand: [2.05, 2.7], face: Math.PI / 2, pose: 'work', optional: true,
         mini: {
           type: 'sort', title: 'Plan the day (she will ignore the plan)', hint: 'Drag each stop into its part of the day',
@@ -293,6 +316,11 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
     exit: { x: 10.2, z: 1.8, label: night ? 'Take the dogs downstairs' : 'Head out' },
     stops,
     hooks,
+    dogGates: [[-4.0, 1.0], [3.5, 1.1]],
+    markSpots: [
+      { id: 'piano', label: 'piano leg', kind: 'piano', leg: piano.leg, stand: [piano.leg[0] + 0.32, piano.leg[1] + 0.26] },
+      { id: 'stool', label: 'bar stool leg', kind: 'stool', leg: [6.215, -0.065], stand: [5.93, 0.22] },
+    ],
     light: night ? KITS.night : KITS.morning,
     camera: CAM_INTERIOR,
     ambience: night ? 'homeNight' : 'home',

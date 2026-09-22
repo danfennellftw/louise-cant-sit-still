@@ -18,7 +18,7 @@ export interface Line {
   name?: string;
 }
 
-export type MiniType = 'pull' | 'sort' | 'place' | 'timing' | 'mash' | 'hold' | 'balance' | 'dialogue' | 'phone';
+export type MiniType = 'pull' | 'sort' | 'place' | 'timing' | 'mash' | 'hold' | 'balance' | 'dialogue' | 'phone' | 'clean';
 
 export interface MiniItem {
   id: string;
@@ -51,6 +51,21 @@ export interface MiniSpec {
   verbs?: [string, string];
   /** Hold mini: the button hops around because she can't keep still. */
   twitchy?: boolean;
+  /** Clean mini: the dog messes on the floor, in the order they're laid out. */
+  mess?: ('poop' | 'pee' | 'pad')[];
+  /** Clean mini: draw the furniture leg Leo picked. */
+  leg?: 'piano' | 'stool';
+}
+
+export interface MarkSpot {
+  id: string;
+  /** e.g. "piano leg" */
+  label: string;
+  kind: 'piano' | 'stool';
+  /** Floor point at the base of the leg (puddle centre). */
+  leg: [number, number];
+  /** Where Leo (and later Louise) stands next to it. */
+  stand: [number, number];
 }
 
 export interface StopDef {
@@ -62,6 +77,8 @@ export interface StopDef {
   face?: number;
   radius?: number;
   pose: HumanState;
+  /** Spawned at runtime (Leo's marks): removed from the set once done instead of staying checked. */
+  transient?: boolean;
   /** Where Louise's root goes while posing (e.g. onto the bed / bike seat). */
   poseAt?: [number, number, number];
   /** Dogs hop to these spots and settle during the stop (bed, bench…). */
@@ -132,6 +149,10 @@ export interface BuiltSet {
   gates: { x: number; z: number; w: number; mesh?: THREE.Object3D }[];
   dogBeds: { mochi: [number, number]; leo: [number, number] } | null;
   stealables: { label: string; x: number; z: number; color: string }[];
+  /** Furniture legs Leo reliably pees on (condo). */
+  markSpots?: MarkSpot[];
+  /** Open gaps at the front of room partitions (x, z) that dogs route through when crossing rooms. */
+  dogGates?: [number, number][];
   /** Set-side hooks the director wires up (e.g. a passing train's horn). */
   events: { sfx?: (id: 'horn', at: THREE.Vector3) => void };
   update(dt: number, t: number): void;

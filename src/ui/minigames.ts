@@ -72,6 +72,9 @@ export class MiniGames {
       case 'phone':
         r = await this.phone(spec, progress);
         break;
+      case 'clean':
+        r = await this.clean(spec, progress);
+        break;
       default:
         r = await this.dialogue(spec, progress);
     }
@@ -414,6 +417,129 @@ export class MiniGames {
         if (e.repeat) return;
         if ([' ', 'e', 'enter'].includes(e.key.toLowerCase())) hit(e);
       });
+    });
+  }
+
+  /* ---- clean: bag the poop (tap), scrub the puddle (rub / mash), swap the pee pad (tap) ---- */
+  private clean(spec: MiniSpec, progress: Progress) {
+    const { bar, body } = this.shell(spec);
+    const mess = spec.mess ?? ['pee'];
+    const spots: Record<string, [number, number][]> = spec.leg
+      ? { pee: [[50, 74]], poop: [[24, 70]], pad: [[78, 64]] }
+      : { poop: [[24, 34], [72, 76], [44, 80]], pee: [[58, 44], [30, 72]], pad: [[80, 32]] };
+    const used: Record<string, number> = {};
+    body.innerHTML = `<div class="clean-floor${spec.leg ? ` leg ${spec.leg}` : ''}">${spec.leg ? '<div class="clean-leg"></div>' : ''}<div class="clean-sponge"></div></div><div class="clean-tip"></div>`;
+    const floor = body.querySelector('.clean-floor') as HTMLElement;
+    const tip = body.querySelector('.clean-tip') as HTMLElement;
+    const sponge = body.querySelector('.clean-sponge') as HTMLElement;
+    const poopSvg = '<svg viewBox="0 0 40 36"><ellipse cx="20" cy="29" rx="17" ry="6" fill="#6b4226"/><ellipse cx="20" cy="21" rx="12" ry="6" fill="#7a4a2a"/><ellipse cx="20" cy="13" rx="7" ry="5" fill="#86522e"/><ellipse cx="16" cy="11" rx="2" ry="1.3" fill="#b07a4e"/></svg>';
+    const items = mess.map((kind) => {
+      const i = used[kind] ?? 0;
+      used[kind] = i + 1;
+      const [x, y] = spots[kind][i % spots[kind].length];
+      const el = document.createElement('button');
+      el.className = `mess ${kind}`;
+      el.style.left = `${x}%`;
+      el.style.top = `${y}%`;
+      el.setAttribute('aria-label', kind === 'poop' ? 'Bag the poop' : kind === 'pad' ? 'Swap the pee pad' : 'Scrub the puddle');
+      if (kind === 'poop') el.innerHTML = poopSvg;
+      floor.appendChild(el);
+      return { kind, el, left: 1 };
+    });
+    const tips = { poop: 'Tap the poop to bag it', pee: 'Rub the puddle to scrub it', pad: 'Tap the soggy pad to swap it' };
+    return new Promise<MiniResult>((resolve) => {
+      const start = performance.now();
+      let lastTick = 0;
+      let rubbing = false;
+      let px = 0;
+      let py = 0;
+      const render = () => {
+        const k = items.reduce((a, it) => a + (1 - it.left), 0) / items.length;
+        bar.style.width = `${k * 100}%`;
+        progress(k);
+        const next = items.find((it) => it.left > 0);
+        tip.textContent = next ? tips[next.kind] : 'Spotless!';
+        if (!next) {
+          this.audio.good();
+          const secs = (performance.now() - start) / 1000;
+          setTimeout(() => resolve({ score: clamp(1.35 - secs / (items.length * 2.4), 0.45, 1), hearts: secs < items.length * 1.6 ? 1 : 0, lines: [] }), 380);
+        }
+      };
+      const finishItem = (it: (typeof items)[number]) => {
+        it.left = 0;
+        it.el.classList.add(it.kind === 'pad' ? 'fresh' : 'gone');
+        if (it.kind === 'poop') this.audio.pop();
+        else if (it.kind === 'pad') this.audio.click();
+        else this.audio.chime();
+        this.onBeat?.('good');
+        haptic(18);
+      };
+      const scrub = (it: (typeof items)[number], amount: number) => {
+        if (it.left <= 0) return;
+        it.left = Math.max(0, it.left - amount);
+        it.el.style.opacity = `${0.15 + it.left * 0.85}`;
+        it.el.style.transform = `translate(-50%, -50%) scale(${0.6 + it.left * 0.4})`;
+        const now = performance.now();
+        if (now - lastTick > 90) {
+          lastTick = now;
+          this.audio.tick();
+          this.onBeat?.('tick');
+          haptic(5);
+        }
+        if (it.left <= 0) finishItem(it);
+      };
+      const hitPee = (x: number, y: number) =>
+        items.filter((it) => {
+          if (it.kind !== 'pee' || it.left <= 0) return false;
+          const r = it.el.getBoundingClientRect();
+          return x > r.left - 14 && x < r.right + 14 && y > r.top - 14 && y < r.bottom + 14;
+        });
+      items.forEach((it) => {
+        this.on(it.el, 'pointerdown', (e: PointerEvent) => {
+          e.preventDefault();
+          if (it.left <= 0) return;
+          if (it.kind === 'pee') scrub(it, 0.12);
+          else finishItem(it);
+          render();
+        });
+      });
+      this.on(floor, 'pointerdown', (e: PointerEvent) => {
+        rubbing = true;
+        px = e.clientX;
+        py = e.clientY;
+        floor.setPointerCapture?.(e.pointerId);
+      });
+      this.on(floor, 'pointermove', (e: PointerEvent) => {
+        const fr = floor.getBoundingClientRect();
+        sponge.style.left = `${e.clientX - fr.left}px`;
+        sponge.style.top = `${e.clientY - fr.top}px`;
+        sponge.classList.toggle('on', rubbing);
+        if (!rubbing) return;
+        const d = Math.hypot(e.clientX - px, e.clientY - py);
+        px = e.clientX;
+        py = e.clientY;
+        const hit = hitPee(e.clientX, e.clientY);
+        if (hit.length) {
+          hit.forEach((it) => scrub(it, d / 420));
+          render();
+        }
+      });
+      const stop = () => {
+        rubbing = false;
+        sponge.classList.remove('on');
+      };
+      this.on(floor, 'pointerup', stop);
+      this.on(floor, 'pointercancel', stop);
+      this.on(window, 'keydown', (e: KeyboardEvent) => {
+        if (e.repeat || ![' ', 'e', 'enter'].includes(e.key.toLowerCase())) return;
+        e.preventDefault();
+        const next = items.find((it) => it.left > 0);
+        if (!next) return;
+        if (next.kind === 'pee') scrub(next, 0.16);
+        else finishItem(next);
+        render();
+      });
+      render();
     });
   }
 

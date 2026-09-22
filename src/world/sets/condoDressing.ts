@@ -162,3 +162,88 @@ export function flowerVase(p: THREE.Object3D, x: number, y: number, z: number, c
   }
   return g;
 }
+
+/**
+ * Upright piano against a wall (front faces +x when ry = π/2). Returns the world
+ * position of the front-right toe leg, Leo's favourite.
+ */
+export function uprightPiano(ctx: SetCtx, x: number, z: number, ry = Math.PI / 2) {
+  const g = group(ctx.root, x, 0, z, ry);
+  const lacquer = M.gloss('#141416', 0.12, 0.9);
+  const trim = M.gloss('#1f1f23', 0.2, 0.8);
+  bx(g, lacquer, 1.46, 1.22, 0.4, 0, 0.08, -0.08, 0.02);
+  bx(g, lacquer, 1.5, 0.05, 0.46, 0, 1.3, -0.07, 0.015);
+  bx(g, trim, 1.36, 0.1, 0.5, 0, 0.66, 0.08, 0.02);
+  bx(g, M.gloss('#f6f3ec', 0.25, 0.4), 1.26, 0.03, 0.15, 0, 0.76, 0.2, 0.005);
+  for (let i = 0; i < 36; i++) {
+    const oct = i % 5;
+    if (oct === 2) continue;
+    bx(g, M.gloss('#0c0c0e', 0.3, 0.5), 0.018, 0.025, 0.09, -0.6 + i * 0.034, 0.79, 0.17, 0.003);
+  }
+  put(g, G.box(1.3, 0.3, 0.03, 0.01), trim, 0, 0.98, 0.12, { rx: -0.12 });
+  put(g, G.box(0.36, 0.26, 0.008, 0.002), M.std('#f7f2e6', 0.9), -0.2, 1.0, 0.14, { rx: -0.12, cast: false });
+  put(g, G.box(0.36, 0.26, 0.008, 0.002), M.std('#f1ead9', 0.9), 0.18, 1.0, 0.14, { rx: -0.12, ry: 0.05, cast: false });
+  for (const sx of [-0.62, 0.62]) {
+    cy(g, lacquer, 0.045, 0.035, 0.6, sx, 0.06, 0.25, 10);
+    bx(g, lacquer, 0.12, 0.06, 0.16, sx, 0, 0.25, 0.01);
+  }
+  bx(g, M.metal('#c9a24a', 0.3), 0.06, 0.02, 0.06, -0.25, 0.08, 0.14, 0.005);
+  bx(g, M.metal('#c9a24a', 0.3), 0.06, 0.02, 0.06, 0.25, 0.08, 0.14, 0.005);
+  flowerVase(g, 0.5, 1.33, -0.05, '#f2e2b0');
+  const frame = group(g, -0.35, 1.33, -0.1, 0);
+  bx(frame, M.std('#c9a57a', 0.6), 0.26, 0.2, 0.03, 0, 0, 0, 0.005);
+  bx(frame, M.std('#8fb4c9', 0.8), 0.2, 0.14, 0.035, 0, 0.03, 0, 0);
+  const bench = group(g, 0, 0, 0.75);
+  bx(bench, lacquer, 0.8, 0.07, 0.34, 0, 0.44, 0, 0.02);
+  for (const [bxp, bz] of [[-0.35, -0.13], [0.35, -0.13], [-0.35, 0.13], [0.35, 0.13]]) bx(bench, lacquer, 0.05, 0.44, 0.05, bxp, 0, bz, 0.01);
+  const c = Math.cos(ry);
+  const s = Math.sin(ry);
+  const toWorld = (lx: number, lz: number) => [x + lx * c + lz * s, z - lx * s + lz * c] as [number, number];
+  const [px, pz] = toWorld(0, -0.08);
+  ctx.solidAt(px, pz, Math.abs(s) > 0.5 ? 0.5 : 1.5, Math.abs(s) > 0.5 ? 1.5 : 0.5);
+  const [bxw, bzw] = toWorld(0, 0.75);
+  ctx.solidAt(bxw, bzw, Math.abs(s) > 0.5 ? 0.36 : 0.8, Math.abs(s) > 0.5 ? 0.8 : 0.36);
+  return { leg: toWorld(-0.62, 0.25), group: g };
+}
+
+/** Mochi's morning: a soggy pee pad, a puddle that missed it, and two little gifts. */
+export function mochiMess(ctx: SetCtx, pad: [number, number], puddle: [number, number], poops: [number, number][]) {
+  const g = dynamic(group(ctx.root, 0, 0, 0));
+  const padG = group(g, pad[0], 0.006, pad[1], 0.2);
+  put(padG, G.box(0.62, 0.012, 0.62, 0.02), M.std('#dfeef7', 0.9), 0, 0, 0, { cast: false });
+  put(padG, G.box(0.5, 0.013, 0.5, 0.02), M.std('#f4f9fc', 0.95), 0, 0.001, 0, { cast: false });
+  const stain = new THREE.Mesh(G.circle(0.16, 20), puddleMat());
+  stain.rotation.x = -Math.PI / 2;
+  stain.position.set(0.05, 0.016, -0.04);
+  padG.add(stain);
+  const pud = new THREE.Mesh(G.circle(0.3, 28), puddleMat());
+  pud.rotation.x = -Math.PI / 2;
+  pud.scale.set(1.25, 0.85, 1);
+  pud.position.set(puddle[0], 0.012, puddle[1]);
+  pud.renderOrder = 2;
+  g.add(pud);
+  const shine = new THREE.Mesh(G.circle(0.08, 12), M.glow('#fff8d0', 1.2));
+  shine.rotation.x = -Math.PI / 2;
+  shine.position.set(puddle[0] - 0.08, 0.014, puddle[1] - 0.05);
+  g.add(shine);
+  for (const [px, pz] of poops) poop(g, px, pz);
+  return g;
+}
+
+let puddleM: THREE.MeshStandardMaterial | null = null;
+export function puddleMat() {
+  if (!puddleM) {
+    puddleM = new THREE.MeshStandardMaterial({ color: '#e6c93f', roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.78, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    puddleM.userData.shared = true;
+  }
+  return puddleM;
+}
+
+function poop(p: THREE.Object3D, x: number, z: number) {
+  const g = group(p, x, 0, z);
+  const brown = M.gloss('#6b4226', 0.35, 0.3);
+  put(g, G.sphere(0.07, 12, 8), brown, 0, 0.035, 0, { s: [1.3, 0.6, 1.1] });
+  put(g, G.sphere(0.05, 12, 8), M.gloss('#7a4a2a', 0.35, 0.3), 0.01, 0.075, 0, { s: [1.2, 0.7, 1.1] });
+  put(g, G.sphere(0.032, 10, 8), M.gloss('#86522e', 0.35, 0.3), 0.015, 0.105, 0.005, { s: [1, 0.9, 1] });
+  return g;
+}

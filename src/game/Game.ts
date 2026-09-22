@@ -18,8 +18,9 @@ import { MiniGames } from '../ui/minigames';
 import { showDayMap } from '../ui/daymap';
 import { DogPack, type Dog } from './dogs';
 import { resolveCircle, clampBounds, separate } from './physics';
+import { puddleMat } from '../world/sets/condoDressing';
 import { SETS, ACTS, actOf, allDone, isFirstOfAct, roast, loadSave, writeSave, clearSave, type SetId, type SaveData } from './story';
-import type { BuiltSet, StopDef, LightKit } from '../world/types';
+import type { BuiltSet, StopDef, LightKit, MarkSpot, Line } from '../world/types';
 
 type Phase = 'boot' | 'title' | 'intro' | 'play' | 'stop' | 'transition' | 'fail' | 'paused' | 'finale';
 
@@ -28,6 +29,18 @@ const JOG = 5.2;
 const ACCEL = 15;
 const DECEL = 19;
 const METER_MAX = 100;
+
+const LEO_NAGS = [
+  'Dan: “Why does the piano smell like… oh no. LEO.”',
+  'That puddle is still there. Louise can feel it. Restless intensifies.',
+  'Leo is sitting next to the puddle, looking extremely innocent.',
+  'The bar stool leg is now roughly 40% Yorkie.',
+];
+const LEO_OUTROS: Line[] = [
+  { who: 'dan', text: 'Buddy. It’s a piano. It is not a tree.' },
+  { who: 'louise', text: 'Every. Single. Morning. Same two legs.' },
+  { who: 'narrator', text: 'Leg: spotless. Leo: already eyeing the other leg.' },
+];
 const PASSIVE_CAP = 62;
 
 function freshSave(): SaveData {
@@ -106,6 +119,7 @@ export class Game {
         this.audio.heart(3);
       },
       bedded: (d, all) => this.onBedded(d, all),
+      marked: (_d, id) => this.onLeoMarked(id),
     });
     this.minis.onBeat = (k) => {
       if (k === 'good') this.louise.pop(0.12);
@@ -249,13 +263,13 @@ export class Game {
     set.particles.forEach((p) => (p.pixelScale = this.r.pixelScale));
     this.stopsDone = new Set(this.save.stops[id] ?? []);
     for (const s of set.stops) {
-      const m = new StopMarker(s.color ?? '#ffd27a', s.radius ?? 0.8, s.poseAt ? 2.3 : 2.1);
-      m.root.position.set(s.pos[0], 0, s.pos[1]);
-      m.state = this.stopsDone.has(s.id) ? 'done' : 'idle';
-      this.markers.set(s.id, m);
-      this.r.scene.add(m.root);
-      this.ui.label(`stop-${s.id}`, s.label + (s.optional ? ' · bonus' : ''));
+      this.addStopMarker(s);
+      if (this.stopsDone.has(s.id)) set.hooks[s.id]?.done?.();
     }
+    this.dirtySpots.clear();
+    this.markPending = null;
+    this.leoMarkN = 0;
+    this.leoMarkT = set.markSpots ? 32 : 0;
     if (set.exit) {
       this.exitMarker = new StopMarker('#fff6ec', 0.9, 2.4);
       this.exitMarker.root.position.set(set.exit.x, 0, set.exit.z);
@@ -571,12 +585,25 @@ export class Game {
     this.dogs.release();
     void tweens.to(0.6, (k) => (this.cam.push = 1 - k), easeInOutCubic);
     this.cam.focus = null;
-    this.stopsDone.add(stop.id);
-    this.save.stops[this.setId] = [...this.stopsDone];
+    if (stop.transient) {
+      set.stops.splice(set.stops.indexOf(stop), 1);
+      delete set.hooks[stop.id];
+      const m = this.markers.get(stop.id);
+      if (m) {
+        this.r.scene.remove(m.root);
+        m.dispose();
+        this.markers.delete(stop.id);
+      }
+      this.save.dogs++;
+    } else {
+      this.stopsDone.add(stop.id);
+      this.save.stops[this.setId] = [...this.stopsDone];
+      this.markers.get(stop.id)!.state = 'done';
+    }
     writeSave(this.save);
     this.lastProgress = this.t;
-    this.markers.get(stop.id)!.state = 'done';
     this.ui.dropLabel(`stop-${stop.id}`);
+    if (set.markSpots && this.leoMarkN === 0) this.leoMarkT = Math.min(this.leoMarkT, 7);
     this.refreshObjectives();
     this.still = 0;
     this.phase = 'play';
@@ -604,6 +631,131 @@ export class Game {
 
   private requiredLeft() {
     return this.set ? this.set.stops.filter((s) => !s.optional && !this.stopsDone.has(s.id)).length : 0;
+  }
+
+  private addStopMarker(s: StopDef) {
+    const m = new StopMarker(s.color ?? '#ffd27a', s.radius ?? 0.8, s.poseAt ? 2.3 : 2.1);
+    m.root.position.set(s.pos[0], 0, s.pos[1]);
+    m.state = this.stopsDone.has(s.id) ? 'done' : 'idle';
+    this.markers.set(s.id, m);
+    this.r.scene.add(m.root);
+    this.ui.label(`stop-${s.id}`, s.label + (s.optional ? ' · bonus' : ''));
+  }
+
+  /* =================== Leo vs. the piano leg & the bar stool leg =================== */
+  private leoMarkT = 0;
+  private leoMarkN = 0;
+  private markPending: MarkSpot | null = null;
+  private dirtySpots = new Map<string, { age: number; nags: number; at: THREE.Vector3 }>();
+
+  private updateLeoMarks(dt: number) {
+    const set = this.set;
+    if (!set?.markSpots || this.phase !== 'play') return;
+    const leo = this.dogs.dogs[1];
+    if (this.markPending) {
+      if (leo.mode !== 'mark') {
+        this.markPending = null;
+        this.leoMarkT = 9;
+      } else if (leo.markPhase === 1 && leo.pos.distanceTo(this.louise.root.position) < 1.2) {
+        const spot = this.markPending;
+        this.dogs.cancelMark();
+        this.markPending = null;
+        this.leoMarkT = 26 + Math.random() * 8;
+        this.ui.toast(`Caught Leo sniffing the ${spot.label}. Not today, sir.`, 'good');
+        this.bark(leo, '*innocent face*');
+        this.addHearts(1, leo.pos);
+        this.save.dogs++;
+      }
+    } else {
+      this.leoMarkT -= dt;
+      if (this.leoMarkT <= 0) this.tryLeoMark(set.markSpots);
+    }
+    for (const d of this.dirtySpots.values()) {
+      d.age += dt;
+      if (d.nags < 3 && d.age > 20 * (d.nags + 1)) {
+        d.nags++;
+        this.meter = Math.max(0, this.meter - 10);
+        this.ui.toast(LEO_NAGS[(this.leoMarkN + d.nags) % LEO_NAGS.length], 'warn');
+        this.cam.shake(0.08);
+        const s = this.project(d.at.clone().setY(0.6));
+        if (s) this.ui.floater('−10 restless', s.x, s.y - 20);
+      }
+    }
+  }
+
+  private tryLeoMark(spots: MarkSpot[]) {
+    const want = spots[this.leoMarkN % spots.length];
+    const spot = !this.dirtySpots.has(want.id) ? want : spots.find((s) => !this.dirtySpots.has(s.id));
+    if (!spot) {
+      this.leoMarkT = 12;
+      return;
+    }
+    const leg = new THREE.Vector3(spot.leg[0], 0, spot.leg[1]);
+    if (!this.dogs.startMark(new THREE.Vector3(spot.stand[0], 0, spot.stand[1]), leg, spot.id, this.set?.dogGates)) {
+      this.leoMarkT = 4;
+      return;
+    }
+    this.markPending = spot;
+    this.leoMarkN++;
+    const leo = this.dogs.dogs[1];
+    this.ui.label('bark-leo', '!', 'alert', 0.9);
+    this.audio.bark('leo');
+    this.ui.toast(`Leo is heading for the ${spot.label}… stop him!`, 'dog');
+    this.focusBriefly(leg, 1.2);
+    void leo;
+  }
+
+  private onLeoMarked(id: string) {
+    const set = this.set;
+    const spot = set?.markSpots?.find((s) => s.id === id);
+    if (!set || !spot) return;
+    this.markPending = null;
+    this.leoMarkT = 30 + Math.random() * 10;
+    this.audio.tinkle();
+    const at = new THREE.Vector3(spot.leg[0], 0, spot.leg[1]);
+    const mesh = new THREE.Group();
+    const pud = new THREE.Mesh(G.circle(0.24, 24), puddleMat());
+    pud.rotation.x = -Math.PI / 2;
+    pud.scale.set(1.3, 0.9, 1);
+    pud.position.set(0.1, 0.012, 0.08);
+    pud.renderOrder = 2;
+    const drip = new THREE.Mesh(G.box(0.05, 0.16, 0.05, 0), puddleMat());
+    drip.position.set(0, 0.09, 0);
+    mesh.add(pud, drip);
+    mesh.position.copy(at);
+    set.root.add(mesh);
+    const stopId = `leo-${id}-${this.leoMarkN}`;
+    const stand = spot.stand;
+    const stop: StopDef = {
+      id: stopId,
+      label: `Wipe the ${spot.label} (Leo)`,
+      verb: 'Wipe',
+      pos: [spot.leg[0] + 0.1, spot.leg[1] + 0.08],
+      stand,
+      face: Math.atan2(spot.leg[0] - stand[0], spot.leg[1] - stand[1]),
+      pose: 'work',
+      radius: 1.1,
+      optional: true,
+      transient: true,
+      mini: { type: 'clean', title: `Leo got the ${spot.label}. Again.`, hint: 'Rub the puddle (or mash Space)', mess: ['pee'], leg: spot.kind },
+      outro: [LEO_OUTROS[this.leoMarkN % LEO_OUTROS.length]],
+      refill: 14,
+      hearts: 1,
+      color: '#f2d36b',
+      push: { dist: 3.4, height: 2.6, yaw: 0.3 },
+    };
+    set.stops.push(stop);
+    set.hooks[stopId] = {
+      done: () => {
+        mesh.removeFromParent();
+        this.dirtySpots.delete(id);
+      },
+    };
+    this.addStopMarker(stop);
+    this.dirtySpots.set(id, { age: 0, nags: 0, at });
+    this.refreshObjectives();
+    this.ui.toast(`Leo peed on the ${spot.label}. Again.`, 'warn');
+    this.bark(this.dogs.dogs[1], '*zero regrets*');
   }
 
   private nextStop(): StopDef | null {
@@ -831,6 +983,7 @@ export class Game {
         chaosAllowed: this.stopsDone.size > 0 || this.setId !== 'condo',
         basket: this.set.vehicle ? this.bike.basket : null,
       });
+      this.updateLeoMarks(dt);
       if (this.set.leaves && this.set.vehicle) this.set.leaves.center.set(L.x, 0, L.z);
       this.set.update(dt, this.t);
     }

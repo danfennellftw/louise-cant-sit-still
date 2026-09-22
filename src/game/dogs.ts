@@ -6,7 +6,7 @@ import { resolveCircle, clampBounds, separate } from './physics';
 import { dampAngle, clamp } from '../engine/util';
 import type { BuiltSet } from '../world/types';
 
-type Mode = 'follow' | 'wander' | 'zoomies' | 'fetch' | 'flee' | 'block' | 'celebrate' | 'basket' | 'herd' | 'bedded' | 'spot' | 'stare';
+type Mode = 'follow' | 'wander' | 'zoomies' | 'fetch' | 'flee' | 'block' | 'celebrate' | 'basket' | 'herd' | 'bedded' | 'spot' | 'stare' | 'mark';
 
 export interface DogEvents {
   bark(dog: Dog, text: string): void;
@@ -17,6 +17,8 @@ export interface DogEvents {
   caught(dog: Dog, what: string): void;
   petted(dog: Dog): void;
   bedded(dog: Dog, all: boolean): void;
+  /** Leo finished marking a furniture leg. */
+  marked(dog: Dog, spotId: string): void;
 }
 
 export class Dog {
@@ -30,6 +32,11 @@ export class Dog {
   spot: THREE.Vector3 | null = null;
   petted = false;
   telegraph = 0;
+  /** Mark run: 0 trotting over, 1 sniffing (still catchable), 2 leg up. */
+  markPhase = 0;
+  markId = '';
+  markLeg = new THREE.Vector3();
+  gates: [number, number][] = [];
   constructor(readonly name: 'mochi' | 'leo', readonly display: string, readonly side: number) {
     this.actor = new Actor(name, { sprite: `sprites/${name}.webp`, height: name === 'mochi' ? 0.82 : 0.78, dog: name });
   }
@@ -55,6 +62,7 @@ export class DogPack {
   readonly dogs: Dog[];
   private chaosT = 14;
   private tmp = new THREE.Vector3();
+  private tmp2 = new THREE.Vector3();
   private beds: Record<string, THREE.Vector3> = {};
   constructor(private ev: DogEvents) {
     this.dogs = [new Dog('mochi', 'Mochi', 1), new Dog('leo', 'Leo', -1)];
@@ -129,6 +137,31 @@ export class DogPack {
         d.spot = null;
       }
     });
+  }
+
+  /** Send Leo to pee on a furniture leg. Returns false if he's busy. */
+  startMark(stand: THREE.Vector3, leg: THREE.Vector3, id: string, gates: [number, number][] = []) {
+    const leo = this.dogs[1];
+    if (!leo.actor.root.visible || !['follow', 'wander', 'celebrate'].includes(leo.mode)) return false;
+    this.dropItem(leo);
+    leo.mode = 'mark';
+    leo.markPhase = 0;
+    leo.markId = id;
+    leo.target.copy(stand);
+    leo.markLeg.copy(leg);
+    leo.gates = gates;
+    leo.timer = 14;
+    return true;
+  }
+
+  /** Louise got there first. True if he hadn't lifted his leg yet. */
+  cancelMark() {
+    const leo = this.dogs[1];
+    if (leo.mode !== 'mark') return false;
+    const foiled = leo.markPhase < 2;
+    leo.mode = 'celebrate';
+    leo.timer = 0.9;
+    return foiled;
   }
 
   get allBedded() {
@@ -344,6 +377,36 @@ export class DogPack {
             d.mode = 'bedded';
             d.vel.set(0, 0, 0);
             this.ev.bedded(d, this.dogs.every((x) => x === d || x.mode === 'bedded'));
+          }
+          break;
+        }
+        case 'mark': {
+          if (d.markPhase === 0) {
+            // route through the partition gap nearest to him that lies between him and the leg
+            const gate = d.gates
+              .filter(([gx]) => (d.pos.x - gx) * (d.target.x - gx) < 0 && Math.abs(d.pos.x - gx) > 0.15)
+              .sort((p, q) => Math.abs(p[0] - d.pos.x) - Math.abs(q[0] - d.pos.x))[0];
+            const goal = gate ? this.tmp2.set(gate[0] + Math.sign(d.target.x - gate[0]) * 0.4, 0, gate[1]) : d.target;
+            const dist = this.moveTo(d, goal, 2.3, dt, gate ? 0.1 : 0.3);
+            speed = d.vel.length();
+            state = 'trot';
+            if (d.timer <= 0) d.pos.set(d.target.x, 0, d.target.z);
+            if ((!gate && dist < 0.22) || d.timer <= 0) {
+              d.markPhase = 1;
+              d.timer = 2.4;
+            }
+          } else {
+            d.vel.multiplyScalar(0.7);
+            a.facing = dampAngle(a.facing, Math.atan2(d.markLeg.x - d.pos.x, d.markLeg.z - d.pos.z), 10, dt);
+            state = d.markPhase === 1 ? 'sniff' : 'mark';
+            if (d.timer <= 0 && d.markPhase === 1) {
+              d.markPhase = 2;
+              d.timer = 1.5;
+            } else if (d.timer <= 0) {
+              this.ev.marked(d, d.markId);
+              d.mode = 'celebrate';
+              d.timer = 1.0;
+            }
           }
           break;
         }

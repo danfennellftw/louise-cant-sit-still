@@ -31,6 +31,12 @@ Vercel: framework preset **Vite**, build `npm run build`, output `dist`. `vercel
 
 - **Restless meter** is the core tension. Standing still drains it fast (after a short grace period). Walking tops it up a little, but only to about 60%. Finishing stops and catching the dogs refill it.
 - Warnings ramp up below 35%: a red vignette, a heartbeat, a shaking meter and a fidgeting Louise.
+- **Condo dog chaos (from real life):**
+  - **Mochi misses the pad.** Every morning there's a soggy pee pad, a puddle next to it and two little gifts on the floor. "Clean up Mochi's accidents" is a required condo stop with its own cleanup minigame: tap to bag the poop, rub the puddle clean, tap to swap the pad.
+  - **Leo always goes for the piano leg and the bar stool leg.** He takes turns between them, first about 7 s after your first finished stop, then every 30–40 s.
+    - You get a heads-up toast when he sets off. Reach him while he's sniffing and you save the leg (+1 heart).
+    - Otherwise he lifts his leg, leaves a puddle, and a "Wipe the … leg (Leo)" bonus stop appears with a leg-wipe minigame.
+    - Leave a puddle for 20 s and the meter drops by 10 with a roast from Dan or the narrator, up to three times per puddle.
 - **Fail is a joke, not a wall.** She plops down, the camera shakes, the dogs stare, and a roast card appears. "Get up, Louise!" puts you back in the same spot with no progress lost.
 - **Every stop is a mini-interaction.** Each set has 2–4 stops, and each one uses one of these:
   - pull (make the bed smoothly)

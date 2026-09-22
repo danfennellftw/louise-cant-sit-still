@@ -192,6 +192,12 @@ export class SpriteRig {
       case 'sniff':
         rz = 0.18 + Math.sin(t * 10) * 0.03;
         break;
+      case 'mark':
+        // leg lift: hard tilt with a guilty little shiver
+        rz = -0.42 + Math.sin(t * 22) * 0.025;
+        y = h * 0.04;
+        sx = 0.94;
+        break;
     }
     const lying = s === 'lie' || s === 'massage';
     if (lying) {

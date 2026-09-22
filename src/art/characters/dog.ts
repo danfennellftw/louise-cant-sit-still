@@ -3,7 +3,7 @@ import { G, put } from '../geo';
 import { M, PAL } from '../materials';
 import { lerp, rng } from '../../engine/util';
 
-export type DogState = 'idle' | 'trot' | 'run' | 'bark' | 'sit' | 'lie' | 'beg' | 'sniff';
+export type DogState = 'idle' | 'trot' | 'run' | 'bark' | 'sit' | 'lie' | 'beg' | 'sniff' | 'mark';
 
 export interface DogLook {
   name: 'mochi' | 'leo';
