@@ -1,21 +1,24 @@
-import { ACTS, SETS, available, actOf, type SetId } from '../game/story';
+import { ACTS, SETS, suggested, actOf, type SetId } from '../game/story';
 import { esc } from './ui';
 import type { Audio } from '../engine/audio';
 
-/** Stylized south-OC day map. Resolves with the picked next stop (or null when closed). */
+/**
+ * Stylized south-OC day map. Every stop is pickable (including finished ones); the story's
+ * suggested next stops just glow. Resolves with the picked stop, or null when closed.
+ */
 export function showDayMap(root: HTMLElement, audio: Audio, done: Set<SetId>, current: SetId | null, closable: boolean): Promise<SetId | null> {
-  const avail = new Set(available(done));
+  const avail = new Set(suggested(done));
   const nextAct = avail.size ? actOf([...avail][0]) : null;
   const node = (id: SetId) => {
     const m = SETS[id];
     const isDone = done.has(id);
     const isAvail = avail.has(id);
-    const fill = isDone ? '#7fd1b9' : isAvail ? '#f2c46d' : '#6a5a70';
-    return `<g class="map-node ${isAvail ? 'avail' : ''}" data-id="${id}" transform="translate(${m.map[0]},${m.map[1]})">
+    const fill = isDone ? '#7fd1b9' : isAvail ? '#f2c46d' : '#e9d9c4';
+    return `<g class="map-node ${isAvail ? 'avail' : ''} ${isDone ? 'done' : ''}" data-id="${id}" transform="translate(${m.map[0]},${m.map[1]})">
       ${isAvail ? `<circle class="ring" r="8" fill="none" stroke="#f2c46d" stroke-width="2"/>` : ''}
       <circle class="dot" r="${isAvail ? 8 : 6}" fill="${fill}" stroke="#2b1d2e" stroke-width="2"/>
       ${isDone ? '<path d="M-3 0 l2 2.5 l4-5" stroke="#10372c" stroke-width="2" fill="none"/>' : ''}
-      <text x="11" y="4" fill="${isAvail ? '#fff6ec' : isDone ? '#bfe9dc' : '#b9a9bf'}">${esc(SETS[id].short)}</text>
+      <text x="11" y="4" fill="${isAvail ? '#fff6ec' : isDone ? '#bfe9dc' : '#f4e8da'}">${esc(SETS[id].short)}</text>
     </g>`;
   };
   const home = SETS.condo.map;
@@ -49,21 +52,21 @@ export function showDayMap(root: HTMLElement, audio: Audio, done: Set<SetId>, cu
     const chips = a.sets
       .map((id) => {
         const st = done.has(id) ? 'done' : avail.has(id) ? 'avail' : '';
-        return `<button data-id="${id}" class="${st}" ${st === 'avail' ? '' : 'disabled'}>${esc(SETS[id].short)}</button>`;
+        return `<button data-id="${id}" class="${st}">${esc(SETS[id].short)}</button>`;
       })
       .join('');
     return `<div class="act-row ${cur ? 'current' : ''}"><span class="num">${a.num}</span><span class="t">${esc(a.title)}<small>${esc(a.sub)}</small></span><span class="chips">${chips}</span></div>`;
   }).join('');
   const el = document.createElement('div');
   el.className = 'map-screen';
-  el.innerHTML = `<h2>Louise’s Day</h2><div class="sub">${avail.size > 1 ? 'Pick where she goes next — any order.' : avail.size ? 'Tap the glowing stop to head there.' : 'All done!'}</div>
+  el.innerHTML = `<h2>Louise’s Day</h2><div class="sub">Tap any stop to go there. ${avail.size ? 'Glowing = next in the story.' : 'Every stop done!'}</div>
     <div class="map-wrap">${svg}</div><div class="acts">${acts}</div>
     ${closable ? '<button class="cta secondary map-close">Back to the game</button>' : ''}`;
   root.appendChild(el);
   void current;
   return new Promise((resolve) => {
     const pick = (id: SetId) => {
-      if (!avail.has(id)) return;
+      if (!SETS[id]) return;
       audio.whoosh();
       el.remove();
       resolve(id);

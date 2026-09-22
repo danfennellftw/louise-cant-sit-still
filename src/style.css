@@ -1564,9 +1564,8 @@ button {
   text-decoration: line-through;
   opacity: 0.8;
 }
-.act-row .chips button:disabled {
-  opacity: 0.4;
-  cursor: default;
+.act-row .chips button {
+  cursor: pointer;
 }
 .map-close {
   margin-top: 12px;

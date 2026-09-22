@@ -58,13 +58,18 @@ export function actOf(id: SetId) {
   return ACTS.find((a) => a.sets.includes(id))!;
 }
 
-export function available(done: Set<SetId>): SetId[] {
+/** The story's suggested next stops. Guidance only: the day map lets you pick any stop. */
+export function suggested(done: Set<SetId>): SetId[] {
   for (const act of ACTS) {
     const left = act.sets.filter((s) => !done.has(s));
     if (!left.length) continue;
     return act.ordered ? [left[0]] : left;
   }
   return [];
+}
+
+export function allDone(done: Set<SetId>) {
+  return ACTS.every((a) => a.sets.every((s) => done.has(s)));
 }
 
 export function isFirstOfAct(id: SetId, done: Set<SetId>) {

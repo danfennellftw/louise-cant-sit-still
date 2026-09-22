@@ -50,7 +50,7 @@ Vercel: framework preset **Vite**, build `npm run build`, output `dist`. `vercel
   - get herded to their beds in the finale
 - **Day structure:** five acts — Morning condo → Fitness circuit (Grit Cycle Dana Point, Shredz Ladera Ranch, Crunch San Clemente, EOS Fitness Rancho Santa Margarita) → Errands (grocery, TJ Maxx, Marshall's, mall with Nike, skincare and massage) → Social (coffee plaza AI meetup + Nina call, e-bike trail RMV → San Juan Capistrano → Dana Point) → Wind-down (garage sauna, YouTube in bed with the dogs, dogs downstairs).
   - An act stinger plays between acts.
-  - A day-map navigator lets you pick the order within the gym and errand acts.
+  - A day-map navigator lets you jump to any stop at any time (including later chapters and finished stops, which reset for a replay). The story order is only a suggestion: the next stops glow. The HUD map button travels too.
 - **Onboarding:** from the title screen you're playing in under 15 seconds. A coach walks you through moving and the first stop, then explains the meter. If you stall, soft breadcrumbs point to the next stop. When the next stop is off-screen, an edge arrow points to it.
 - Progress auto-saves to `localStorage` ("Continue the day" on the title screen).
 

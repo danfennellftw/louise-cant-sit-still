@@ -18,7 +18,7 @@ import { MiniGames } from '../ui/minigames';
 import { showDayMap } from '../ui/daymap';
 import { DogPack, type Dog } from './dogs';
 import { resolveCircle, clampBounds, separate } from './physics';
-import { SETS, ACTS, actOf, available, isFirstOfAct, roast, loadSave, writeSave, clearSave, type SetId, type SaveData } from './story';
+import { SETS, ACTS, actOf, allDone, isFirstOfAct, roast, loadSave, writeSave, clearSave, type SetId, type SaveData } from './story';
 import type { BuiltSet, StopDef, LightKit } from '../world/types';
 
 type Phase = 'boot' | 'title' | 'intro' | 'play' | 'stop' | 'transition' | 'fail' | 'paused' | 'finale';
@@ -344,6 +344,7 @@ export class Game {
     this.cam.cine = 1;
     this.cam.orbit = 0;
     this.ui.clearScreens();
+    this.ui.coach(null);
     this.ui.showHud(true);
     await this.ui.fade(false);
     const meta = SETS[id];
@@ -353,7 +354,7 @@ export class Game {
     this.cam.cine = 0;
     this.phase = 'play';
     this.lastProgress = this.t;
-    if (id === 'condo' && !this.save.tutorial) this.coachStep = 1;
+    this.coachStep = id === 'condo' && !this.save.tutorial ? 1 : 0;
     if (id === 'trail') this.ui.toast('Ride through the glowing gates to keep her charged!', 'good');
     if (set.dogBeds) {
       this.ui.coach('Herd <b>Mochi</b> and <b>Leo</b> to their glowing beds — walk <b>behind</b> them to nudge them along.');
@@ -423,13 +424,22 @@ export class Game {
 
   private async pickNext() {
     const done = new Set(this.save.done);
-    const avail = available(done);
-    if (!avail.length) return this.finale();
+    if (allDone(done)) return this.finale();
     this.ui.showHud(false);
     // the map lives under #fade in the stacking order, so the fade must lift first
     await this.ui.fade(false);
     const next = await showDayMap(this.ui.screens, this.audio, done, this.setId, false);
     if (!next) return;
+    await this.travelTo(next);
+  }
+
+  /** Go to any stop. Finished stops are reset so they can be replayed. */
+  private async travelTo(next: SetId) {
+    const done = new Set(this.save.done);
+    if (done.has(next)) {
+      this.save.stops[next] = [];
+      writeSave(this.save);
+    }
     if (isFirstOfAct(next, done)) {
       const act = actOf(next);
       await this.ui.stinger(act.num, act.title, act.sub);
@@ -441,8 +451,18 @@ export class Game {
     if (this.phase !== 'play') return;
     this.phase = 'paused';
     this.pausedFrom = 'play';
-    await showDayMap(this.ui.screens, this.audio, new Set(this.save.done), this.setId, true);
-    this.phase = 'play';
+    const next = await showDayMap(this.ui.screens, this.audio, new Set(this.save.done), this.setId, true);
+    if (!next || next === this.setId) {
+      this.phase = 'play';
+      return;
+    }
+    this.phase = 'transition';
+    this.ui.hidePrompt();
+    this.ui.coach(null);
+    this.hideGuides();
+    this.ui.showHud(false);
+    await this.ui.fade(true);
+    await this.travelTo(next);
   }
 
   private finale() {
