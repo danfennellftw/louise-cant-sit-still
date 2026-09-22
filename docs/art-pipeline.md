@@ -12,6 +12,15 @@
 
 The real photo references are not committed; they were only used as likeness and palette cues.
 
+### Photo-referenced set dressing (until real scene plates arrive)
+
+- **Condo living room** (`condo.ts`, `condoDressing.ts`): bronze-framed glass wall looking onto a built 3D covered patio, not a painted backdrop. It has the grey sectional with blue pillows, white ceramic garden stool, teak table with flowers, a row of tall ornamental grasses, then the hedge and trees. Inside: cream boucle chair and ottoman, wood arc lamp with drum shade, mosaic side table with decanter, shaggy diamond rug, oak floor.
+- **Desk office nook:** walnut desk, monitor showing a live AI chat, laptop, pinboard, task chair. It hosts the bonus "Plan the day" stop.
+- **Bedroom:** beige walls, white duvet with a rust throw, wood dresser with pink flowers under the wall TV, brass floor lamp with white drum shade, blue-glow blackout shade.
+- **Garage sauna** (`evening.ts`): light pine-box infrared sauna with dark IR panels that glow as it heats and a blue LED strip. Also a three-board snowboard wall rack (pink, white, black), an EV on the wall charger (green status ring, coiled cable, "CHARGING" readout), the fat-tire e-bike topping up, epoxy flake floor, and black wire shelving.
+- **San Juan Creek Trail** (`outdoor.ts`): striped asphalt levee path, chain-link fence, rip-rap creek channel with a sandy bed and a trickle of water, sycamores and willows, a citrus grove near Rancho Mission Viejo, and the I-5 overpass with moving traffic. A coastal train crosses the rail trestle and blows its horn. Then the Los Rios cottages and mission bells in San Juan Capistrano, and the finish at Doheny with palms, lifeguard tower, sand and harbor boats.
+- **E-bike:** fat-tire, Aima-style silhouette: downtube battery with charge LED, suspension fork, handlebar display, rear rack basket for the dogs. No badges.
+
 ## Blender pass v1 (evaluated, not shipped)
 
 Dan provided a headless Blender 4.3 export pack.
