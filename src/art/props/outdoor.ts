@@ -1,3 +1,4 @@
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import * as THREE from 'three';
 import { G, bx, cy, dynamic, group, put, sp } from '../geo';
 import { M } from '../materials';
@@ -344,4 +345,81 @@ export function water(ctx: SetCtx, x: number, z: number, w: number, d: number, c
     geo.computeVertexNormals();
   });
   return m;
+}
+
+/**
+ * Tesla-style EV silhouettes (no badges): 'y' is the taller crossover hatch, '3' the low sedan.
+ * The car faces +z at ry = 0. Clearcoat gloss paint + black glass greenhouse/roof.
+ */
+export function teslaCar(ctx: SetCtx, x: number, z: number, ry: number, model: 'y' | '3', paint: string) {
+  const g = group(ctx.root, x, 0, z, ry);
+  const y = model === 'y';
+  const L = y ? 4.75 : 4.7;
+  const W = y ? 1.9 : 1.84;
+  const belt = y ? 1.0 : 0.9;
+  // side profile: [along length (+ = nose), height]
+  const body: [number, number][] = y
+    ? [[-2.34, 0.34], [-2.4, 0.62], [-2.34, 0.88], [-2.18, 1.0], [-1.9, 1.03], [1.45, 1.0], [1.9, 0.93], [2.2, 0.84], [2.36, 0.7], [2.38, 0.52], [2.3, 0.34]]
+    : [[-2.3, 0.3], [-2.36, 0.56], [-2.3, 0.82], [-2.12, 0.93], [-1.55, 0.95], [1.3, 0.9], [1.8, 0.8], [2.15, 0.7], [2.33, 0.56], [2.33, 0.42], [2.24, 0.28]];
+  const glass: [number, number][] = y
+    ? [[-2.05, 0.99], [-1.75, 1.36], [-1.3, 1.55], [-0.6, 1.61], [0.3, 1.6], [0.7, 1.5], [1.45, 1.0]]
+    : [[-1.6, 0.93], [-1.0, 1.3], [-0.45, 1.42], [0.2, 1.42], [0.5, 1.34], [1.3, 0.9]];
+  const extrude = (pts: [number, number][], width: number, bevel: number) => {
+    const sh = new THREE.Shape();
+    sh.moveTo(pts[0][0], pts[0][1]);
+    sh.splineThru(pts.slice(1).map(([u, v]) => new THREE.Vector2(u, v)));
+    sh.closePath();
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: width - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel * 0.9, bevelSegments: 5, curveSegments: 10 });
+    geo.translate(0, 0, -(width - bevel * 2) / 2);
+    geo.rotateY(-Math.PI / 2);
+    return geo;
+  };
+  const paintMat = new THREE.MeshPhysicalMaterial({ color: paint, metalness: 0.55, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.04 });
+  const glassMat = new THREE.MeshPhysicalMaterial({ color: '#0d1014', metalness: 0.2, roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.02 });
+  // pinch the ends in plan view and round the shoulders / tumblehome so it reads as a car, not a box
+  const shape = (geo: THREE.BufferGeometry, fn: (px: number, py: number, pz: number) => number) => {
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) pos.setX(i, pos.getX(i) * fn(pos.getX(i), pos.getY(i), pos.getZ(i)));
+    // ExtrudeGeometry is flat-shaded; weld and re-normal so the paint reflects as one smooth body
+    geo.deleteAttribute('uv');
+    geo.deleteAttribute('normal');
+    const smooth = mergeVertices(geo, 1e-3);
+    smooth.computeVertexNormals();
+    return smooth;
+  };
+  const sstep = (a: number, b: number, v: number) => {
+    const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+  const top = y ? 1.61 : 1.42;
+  const bodyGeo = shape(extrude(body, W, 0.16), (_x, py, pz) => (1 - 0.14 * sstep(L / 2 - 0.9, L / 2, Math.abs(pz))) * (1 - 0.06 * sstep(belt - 0.4, belt, py)));
+  const glassGeo = shape(extrude(glass, W - 0.16, 0.1), (_x, py, pz) => (1 - 0.3 * sstep(belt, top, py)) * (1 - 0.1 * sstep(L / 2 - 1.4, L / 2 - 0.4, Math.abs(pz))));
+  const bodyMesh = new THREE.Mesh(bodyGeo, paintMat);
+  bodyMesh.castShadow = bodyMesh.receiveShadow = true;
+  g.add(bodyMesh);
+  const gh = new THREE.Mesh(glassGeo, glassMat);
+  gh.castShadow = true;
+  g.add(gh);
+  // thin paint beltline + A-pillar trim so the greenhouse reads as a separate glass cap
+  bx(g, paintMat, (W - 0.1) * 0.94, 0.04, L * 0.7, 0, belt - 0.03, -0.2, 0.02);
+  // wheels: tyre + aero cover
+  const tyre = M.std('#121214', 0.85);
+  const cover = M.gloss(y ? '#2f3236' : '#c9cdd2', 0.35, 0.8);
+  for (const [wx, wz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
+    const w = group(g, wx * (W / 2 - 0.12), 0.37, wz * (y ? 1.45 : 1.44));
+    put(w, G.cyl(0.37, 0.37, 0.26, 28), tyre, 0, 0, 0, { rz: Math.PI / 2 });
+    put(w, G.cyl(0.27, 0.27, 0.27, 24), cover, 0, 0, 0, { rz: Math.PI / 2 });
+    put(w, G.torus(0.2, 0.025, Math.PI * 2, 6, 24), M.metal('#8a9097', 0.3), wx * 0.14, 0, 0, { ry: Math.PI / 2 });
+  }
+  // slim headlights, lower intake, taillights, mirrors, charge-port door
+  const nose = y ? 2.33 : 2.3;
+  for (const s of [-1, 1]) {
+    put(g, G.box(0.42, 0.05, 0.05, 0.02), M.glow('#eef6ff', 2.2), s * (W / 2 - 0.34), y ? 0.8 : 0.66, nose, { ry: -s * 0.25, cast: false });
+    put(g, G.box(0.36, 0.06, 0.05, 0.02), M.glow('#ff2a1f', 1.8), s * (W / 2 - 0.3), y ? 0.9 : 0.84, -(y ? 2.32 : 2.28), { ry: s * 0.2, cast: false });
+    put(g, G.box(0.2, 0.1, 0.09, 0.04), paintMat, s * (W / 2 + 0.05), belt + 0.08, 0.95, {});
+  }
+  bx(g, M.std('#111214', 0.7), W * 0.5, 0.08, 0.06, 0, 0.36, nose + 0.02, 0.02);
+  put(g, G.box(0.06, 0.11, 0.14, 0.02), paintMat, W / 2 + 0.005, belt - 0.14, -(y ? 1.95 : 1.9), { cast: false });
+  ctx.solidAt(x, z, Math.abs(Math.sin(ry)) > 0.5 ? L : W + 0.1, Math.abs(Math.sin(ry)) > 0.5 ? W + 0.1 : L);
+  return { group: g, chargePort: new THREE.Vector3(x + W / 2, belt - 0.14, z - (y ? 1.95 : 1.9)) };
 }

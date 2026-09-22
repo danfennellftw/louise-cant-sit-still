@@ -40,9 +40,16 @@ export class CameraRig {
   private desired(target: THREE.Vector3, outPos: THREE.Vector3, outLook: THREE.Vector3) {
     const s = this.spec;
     const p = this.push;
-    const portrait = this.camera.aspect < 0.85 ? lerp(1.32, 1.12, p) : 1;
-    const dist = lerp(s.dist, this.pushSpec.dist, p) * portrait;
-    const height = lerp(s.height, this.pushSpec.height, p) * portrait;
+    const tall = this.camera.aspect < 0.85;
+    const o = tall ? s.portrait : undefined;
+    const fov = o ? lerp(o.fov, s.fov, p) : s.fov;
+    if (Math.abs(this.camera.fov - fov) > 0.05) {
+      this.camera.fov = fov;
+      this.camera.updateProjectionMatrix();
+    }
+    const portrait = tall && !o ? lerp(1.32, 1.12, p) : tall ? lerp(1, 1.12, p) : 1;
+    const dist = lerp(o?.dist ?? s.dist, this.pushSpec.dist, p) * portrait;
+    const height = lerp(o?.height ?? s.height, this.pushSpec.height, p) * portrait;
     const yaw = s.yaw + this.pushSpec.yaw * p + this.orbit;
     outLook.copy(target);
     outLook.y = lerp(s.lookY, 1.0, p);
