@@ -53,11 +53,11 @@ export const CAM_INTERIOR: CamSpec = { dist: 10, height: 7.6, fov: 38, yaw: 0, l
 export const CAM_WIDE: CamSpec = { dist: 12.5, height: 9.5, fov: 38, yaw: 0, lookY: 0.8, lookAhead: 0.5 };
 export const CAM_OUTDOOR: CamSpec = { dist: 11, height: 7, fov: 42, yaw: 0, lookY: 1.0, lookAhead: 0.7 };
 
-type Partial2 = Omit<BuiltSet, 'root' | 'colliders' | 'particles' | 'update' | 'dispose' | 'npcs' | 'gates' | 'dogBeds' | 'stealables' | 'vehicle' | 'leaves' | 'dogs' | 'hooks'> &
+type Partial2 = Omit<BuiltSet, 'root' | 'colliders' | 'particles' | 'update' | 'dispose' | 'events' | 'npcs' | 'gates' | 'dogBeds' | 'stealables' | 'vehicle' | 'leaves' | 'dogs' | 'hooks'> &
   Partial<Pick<BuiltSet, 'npcs' | 'gates' | 'dogBeds' | 'stealables' | 'vehicle' | 'leaves' | 'dogs' | 'hooks'>>;
 
 /** Finalizes a set: bakes static meshes and wires update/dispose. */
-export function makeSet(ctx: SetCtx, s: Partial2): BuiltSet {
+export function makeSet(ctx: SetCtx, s: Partial2, events: BuiltSet['events'] = {}): BuiltSet {
   ctx.bake();
   const npcs = s.npcs ?? [];
   const leaves = s.leaves ?? null;
@@ -75,6 +75,7 @@ export function makeSet(ctx: SetCtx, s: Partial2): BuiltSet {
     leaves,
     dogs: s.dogs ?? 'follow',
     hooks: s.hooks ?? {},
+    events,
     update(dt, t) {
       for (const u of ctx.updaters) u(dt, t);
       for (const p of ctx.particles) p.update(dt);

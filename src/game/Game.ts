@@ -43,7 +43,7 @@ export class Game {
   private minis: MiniGames;
   private louise: Actor;
   private dogs: DogPack;
-  private bike = ebike(new THREE.Group(), 0, 0, 0, '#e9e2d6', true);
+  private bike = ebike(new THREE.Group(), 0, 0, 0, '#3a3f45', true);
   private confetti = new Confetti();
   private tap = new TapMarker();
   private breadcrumbs: THREE.Mesh[] = [];
@@ -265,6 +265,12 @@ export class Game {
     this.ui.setChapter(SETS[id].time, `${SETS[id].title} · ${SETS[id].place}`);
     this.refreshObjectives();
     this.cam.snap(this.louise.root.position);
+    set.events.sfx = (sfx, at) => {
+      if (sfx === 'horn' && Math.abs(at.z - this.louise.root.position.z) < 55) {
+        this.audio.horn();
+        this.ui.toast('Train coming across the trestle!', 'good');
+      }
+    };
     void this.tryEnvironmentOverride(id, set);
   }
 

@@ -8,8 +8,9 @@ import { tweens } from '../../engine/tween';
 import { easeOutBack, easeOutElastic } from '../../engine/util';
 import {
   bed, nightstand, dresser, tv, sofa, boucleChair, mosaicTable, coffeeTable, kitchenRun, fridge, stove, island, dogBed,
-  steak, drumstick, potato, plate, bookshelf,
+  steak, drumstick, potato, plate,
 } from '../../art/props/home';
+import { patio, deskNook, brassFloorLamp, flowerVase } from './condoDressing';
 import { Actor } from '../../art/characters/actor';
 import { DAN_LOOK } from '../../art/characters/human';
 import type { BuiltSet, StopDef, StopHooks } from '../types';
@@ -26,7 +27,7 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
     right: [[1.2, 2.4, 0, 2.25]],
   });
   // bedroom accent wall + partitions
-  bx(ctx.root, M.std('#d8c8b6', 0.9), 6.8, 2.9, 0.04, -7.5, 0, -4.38, 0);
+  bx(ctx.root, M.std('#e2d1ba', 0.9), 6.8, 2.9, 0.04, -7.5, 0, -4.38, 0);
   wallZ(ctx, -4, -4.5, 0.2, 2.9, wall);
   wallZ(ctx, 3.5, -4.5, 0.2, 2.9, wall);
   for (const x of [-4, 3.5]) bx(ctx.root, M.std('#3a2a2a', 0.8), 0.22, 0.03, 4.7, x, 2.9, -2.15, 0, { cast: false });
@@ -41,16 +42,21 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
   tableLamp(ctx, ctx.root, -9.2, 0.6, -4.05, night);
   tableLamp(ctx, ctx.root, -6.4, 0.6, -4.05, night);
   windowUnit(ctx, -11, -1.6, 2.2, 1.55, 0.9, TX.gardenBackdrop(night), { side: 'left', shade: '#6b6258', curtains: '#efe6d8', key: `bedwin${night}` });
-  dresser(ctx, -10.45, 2.0, Math.PI / 2);
-  const bedTv = tv(ctx, ctx.root, -4.14, 1.15, -1.9, -Math.PI / 2, 1.3);
-  bx(ctx.root, M.std('#7a4e30', 0.5), 0.4, 0.5, 1.5, -4.35, 0, -1.9, 0.03);
-  ctx.solidAt(-4.35, -1.9, 0.45, 1.5);
+  // from the bedroom photos: wood dresser with pink flowers under the wall TV, brass lamp, rust throw
+  dresser(ctx, -4.42, -1.7, -Math.PI / 2);
+  flowerVase(ctx.root, -4.42, 0.93, -1.15);
+  const bedTv = tv(ctx, ctx.root, -4.14, 1.3, -1.7, -Math.PI / 2, 1.3);
+  brassFloorLamp(ctx, -10.25, -3.95, night);
+  bx(b.root, M.fabric('#8f4a2c', '#e8a07a', 0.95, 0.7), 1.82, 0.06, 0.55, 0, 0.7, 0.78, 0.03);
+  put(ctx.root, G.box(0.5, 0.3, 0.4, 0.06), M.fabric('#e8dccb', '#fff', 0.95), -10.3, 0, 2.6, { cast: true });
+  ctx.solidAt(-10.3, 2.6, 0.5, 0.4);
   rug(ctx.root, -7.8, -0.9, 3.2, 1.6, TX.rug('#e7e1d8', '#b9b1a6'), 0, 'bedrug');
   plant(ctx.root, -4.6, -3.9, 1.05, '#f1ebe0', 'snake');
   ctx.solidAt(-4.6, -3.9, 0.5, 0.5);
 
   /* ---------- Living room (from the photo: glass wall onto the garden) ---------- */
-  windowUnit(ctx, -0.25, -4.5, 6.2, 2.55, 0.08, TX.gardenBackdrop(night), { frame: '#3b3a38', shaft: night ? undefined : '#ffe6b8', key: `glass${night}` });
+  windowUnit(ctx, -0.25, -4.5, 6.2, 2.55, 0.08, TX.gardenBackdrop(night), { frame: '#3b3a38', shaft: night ? undefined : '#ffe6b8', key: `glass${night}`, noBackdrop: true });
+  patio(ctx, night);
   bx(ctx.root, M.std('#3b3a38', 0.4, 0.4), 0.06, 2.6, 0.08, -1.3, 0.06, -4.42, 0.01);
   bx(ctx.root, M.std('#3b3a38', 0.4, 0.4), 0.06, 2.6, 0.08, 0.8, 0.06, -4.42, 0.01);
   rug(ctx.root, -0.6, -1.4, 4.4, 3.2, TX.rug('#d9d4cc', '#8e8a86'), 0, 'livrug');
@@ -62,7 +68,7 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
   coffeeTable(ctx, 0.9, -1.3, Math.PI / 2);
   plant(ctx.root, 3.0, -3.95, 1.2, '#e6ddd0', 'fig');
   ctx.solidAt(3.0, -3.95, 0.5, 0.5);
-  bookshelf(ctx, -3.55, 2.0, Math.PI / 2);
+  deskNook(ctx, 3.0, 2.7, night);
   dogBed(ctx.root, -1.6, 2.7, '#e9dcc6');
   dogBed(ctx.root, -0.4, 3.2, '#c98a5a');
   ceilingFan(ctx, -0.4, 2.85, -1.2, night ? 1 : 2.4);
@@ -111,7 +117,7 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
     dan.facing = 0;
     dan.setState('lie');
   } else {
-    dan.root.position.set(2.0, 0, 0.35);
+    dan.root.position.set(1.85, 0, 0.3);
     dan.facing = -Math.PI / 2;
     dan.setState('idle');
   }
@@ -211,7 +217,29 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
         refill: 35, hearts: 4, color: '#f2c46d', push: { dist: 4.6, height: 3.9, yaw: 0.35 },
       },
       {
-        id: 'dan', label: 'Kiss Dan goodbye', verb: 'Say bye', pos: [1.1, 0.4], stand: [1.1, 0.4], face: Math.PI / 2, pose: 'wave', optional: true,
+        id: 'desk', label: 'Plan the day at the desk', verb: 'Plan', pos: [2.05, 2.7], stand: [2.05, 2.7], face: Math.PI / 2, pose: 'work', optional: true,
+        mini: {
+          type: 'sort', title: 'Plan the day (she will ignore the plan)', hint: 'Drag each stop into its part of the day',
+          slots: [
+            { id: 'am', label: 'Morning', color: '#f2c46d' },
+            { id: 'pm', label: 'Afternoon', color: '#ff9e7a' },
+            { id: 'eve', label: 'Evening', color: '#9fb6ff' },
+          ],
+          items: [
+            { id: 'a', label: 'Grit Cycle', color: '#ff3d9a', slot: 'am' },
+            { id: 'b', label: 'Shredz + Crunch + EOS', color: '#f2c230', slot: 'am' },
+            { id: 'c', label: 'TJ Maxx run', color: '#a4262c', slot: 'pm' },
+            { id: 'd', label: 'AI coffee meetup', color: '#9ad4ff', slot: 'pm' },
+            { id: 'e', label: 'Garage sauna', color: '#ffb38a', slot: 'eve' },
+            { id: 'f', label: 'YouTube + dogs', color: '#9fb6ff', slot: 'eve' },
+          ],
+        },
+        intro: [{ who: 'louise', text: 'Quick scroll of AI news, then the plan. A very realistic plan.' }],
+        outro: [{ who: 'narrator', text: 'Plan: perfect. Odds she follows it in order: low. Odds she does all of it anyway: 100%.' }],
+        refill: 20, hearts: 3, color: '#9ad4ff', push: { dist: 4.2, height: 3.2, yaw: 0.45 },
+      },
+      {
+        id: 'dan', label: 'Kiss Dan goodbye', verb: 'Say bye', pos: [1.0, 0.35], stand: [1.0, 0.35], face: Math.PI / 2, pose: 'wave', optional: true,
         mini: {
           type: 'dialogue', title: 'Quick goodbye',
           lines: [{ who: 'dan', text: 'Where are you off to?' }],

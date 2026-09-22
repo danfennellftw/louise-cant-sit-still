@@ -132,6 +132,8 @@ export interface BuiltSet {
   gates: { x: number; z: number; w: number; mesh?: THREE.Object3D }[];
   dogBeds: { mochi: [number, number]; leo: [number, number] } | null;
   stealables: { label: string; x: number; z: number; color: string }[];
+  /** Set-side hooks the director wires up (e.g. a passing train's horn). */
+  events: { sfx?: (id: 'horn', at: THREE.Vector3) => void };
   update(dt: number, t: number): void;
   dispose(): void;
 }

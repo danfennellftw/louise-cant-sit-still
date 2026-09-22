@@ -176,6 +176,10 @@ export class Audio {
     [0, 7, 12, 16, 19].forEach((s, i) => this.tone(392 * Math.pow(2, s / 12), 0.9, 'triangle', 0.1, i * 0.06));
     this.noise(0.8, 5000, 0.5, 0.05, 0.1, 'highpass');
   }
+  horn() {
+    for (const f of [311, 370, 466]) this.tone(f, 1.4, 'sawtooth', 0.035, 0, undefined, f * 0.985);
+    for (const f of [311, 370, 466]) this.tone(f, 0.9, 'sawtooth', 0.03, 1.6, undefined, f * 0.985);
+  }
   hiss() {
     this.noise(1.2, 4000, 0.4, 0.12, 0, 'highpass');
   }

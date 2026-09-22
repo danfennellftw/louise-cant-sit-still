@@ -135,33 +135,130 @@ export function rock(p: THREE.Object3D, x: number, z: number, s = 1, color = '#b
   return put(p, G.dodeca(0.5 * s), M.std(color, 0.95), x, 0.2 * s, z, { s: [1.3, 0.7, 1], ry: x + z });
 }
 
-/** E-bike (cruiser-style, no branding). Returns wheels for spinning. */
-export function ebike(p: THREE.Object3D, x: number, z: number, ry = 0, color = '#e9e2d6', basket = true) {
+/** Fat-tire commuter e-bike (Aima-style silhouette, no badges). Returns wheels for spinning + rear basket. */
+export function ebike(p: THREE.Object3D, x: number, z: number, ry = 0, color = '#3a3f45', basket = true) {
   const g = dynamic(group(p, x, 0, z, ry));
-  const frame = M.gloss(color, 0.35, 0.7);
-  const tire = M.std('#1b1b1d', 0.8);
+  const frame = M.gloss(color, 0.45, 0.5);
+  const accent = M.gloss('#2fb5a8', 0.35, 0.6);
+  const tire = M.std('#161618', 0.85);
+  const alloy = M.metal('#8a9097', 0.35);
   const wheels: THREE.Group[] = [];
-  for (const wz of [-0.55, 0.55]) {
-    const w = group(g, 0, 0.34, wz);
-    put(w, G.torus(0.31, 0.05, Math.PI * 2, 8, 28), tire, 0, 0, 0, { ry: Math.PI / 2 });
-    put(w, G.cyl(0.05, 0.05, 0.08, 10), M.metal('#bbb', 0.3), 0, 0, 0, { rz: Math.PI / 2 });
-    for (let i = 0; i < 6; i++) put(w, G.box(0.01, 0.58, 0.01, 0), M.metal('#ccc', 0.3), 0, 0, 0, { rx: (i / 6) * Math.PI });
+  for (const wz of [-0.58, 0.6]) {
+    const w = group(g, 0, 0.36, wz);
+    put(w, G.torus(0.28, 0.085, Math.PI * 2, 10, 30), tire, 0, 0, 0, { ry: Math.PI / 2 });
+    put(w, G.cyl(0.22, 0.22, 0.1, 24, true), alloy, 0, 0, 0, { rz: Math.PI / 2 });
+    put(w, G.cyl(0.06, 0.06, 0.14, 12), M.std('#222', 0.5, 0.5), 0, 0, 0, { rz: Math.PI / 2 });
+    for (let i = 0; i < 5; i++) put(w, G.box(0.02, 0.42, 0.02, 0), alloy, 0, 0, 0, { rx: (i / 5) * Math.PI });
+    put(w, G.torus(0.33, 0.03, Math.PI * 0.9, 6, 16), frame, 0, 0.02, 0, { ry: Math.PI / 2, rx: -Math.PI * 0.05 });
     wheels.push(w);
   }
-  put(g, G.box(0.06, 0.06, 1.0, 0.02), frame, 0, 0.55, 0, { rx: 0.25 });
-  put(g, G.box(0.06, 0.62, 0.06, 0.02), frame, 0, 0.62, -0.25, { rx: -0.3 });
-  put(g, G.box(0.06, 0.7, 0.06, 0.02), frame, 0, 0.72, 0.45, { rx: 0.25 });
-  bx(g, M.std('#2a2a2a', 0.5, 0.3), 0.12, 0.3, 0.2, 0, 0.36, -0.05, 0.03);
-  bx(g, M.fabric('#6b4a2a', '#fff', 0.7), 0.2, 0.06, 0.3, 0, 0.95, -0.35, 0.03);
-  bx(g, frame, 0.6, 0.04, 0.04, 0, 1.1, 0.55, 0.02);
-  sp(g, M.glow('#fff4d6', 2), 0.05, 0, 0.98, 0.66, { cast: false });
+  // chunky frame: downtube with integrated battery, seat tube, top tube, suspension fork
+  put(g, G.box(0.11, 0.11, 0.95, 0.04), frame, 0, 0.62, 0.08, { rx: 0.42 });
+  put(g, G.box(0.13, 0.12, 0.62, 0.05), M.gloss('#26292d', 0.4, 0.4), 0, 0.6, 0.1, { rx: 0.42 });
+  put(g, G.box(0.14, 0.02, 0.06, 0.01), M.glow('#6fe36f', 1.8), 0, 0.69, 0.05, { rx: 0.42, cast: false });
+  put(g, G.box(0.09, 0.62, 0.09, 0.03), frame, 0, 0.66, -0.24, { rx: -0.28 });
+  put(g, G.box(0.08, 0.08, 0.7, 0.03), frame, 0, 0.92, 0.1, { rx: 0.12 });
+  for (const s of [-1, 1]) put(g, G.box(0.04, 0.6, 0.04, 0.015), alloy, s * 0.09, 0.62, 0.55, { rx: 0.22 });
+  put(g, G.box(0.1, 0.34, 0.1, 0.03), frame, 0, 1.0, 0.5, { rx: 0.22 });
+  bx(g, M.gloss('#1d1d1f', 0.4), 0.62, 0.04, 0.05, 0, 1.14, 0.52, 0.02);
+  for (const s of [-1, 1]) bx(g, M.std('#111', 0.7), 0.1, 0.05, 0.06, s * 0.3, 1.13, 0.52, 0.02);
+  bx(g, M.gloss('#111', 0.2, 0.8), 0.1, 0.06, 0.02, 0, 1.18, 0.5, 0.01);
+  put(g, G.plane(0.08, 0.04), M.glow('#8fd8ff', 1.4), 0, 1.2, 0.512, { rx: -0.4, cast: false });
+  bx(g, M.gloss('#1d1d1f', 0.3), 0.1, 0.08, 0.08, 0, 1.0, 0.64, 0.03);
+  sp(g, M.glow('#fff4d6', 2.4), 0.04, 0, 1.03, 0.69, { cast: false });
+  cy(g, M.metal('#2a2a2a', 0.4), 0.02, 0.02, 0.25, 0, 0.9, -0.33, 8);
+  put(g, G.box(0.2, 0.07, 0.3, 0.03), M.fabric('#2a2522', '#666', 0.7), 0, 1.15, -0.36, { rx: 0.05 });
+  put(g, G.box(0.2, 0.02, 0.42, 0.01), alloy, 0, 0.82, -0.62, {});
+  for (const s of [-1, 1]) put(g, G.box(0.015, 0.36, 0.015, 0), alloy, s * 0.09, 0.64, -0.52, { rx: 0.5 });
+  put(g, G.box(0.02, 0.05, 0.2, 0.01), accent, 0.06, 0.63, -0.02, { rx: 0.42, cast: false });
+  put(g, G.box(0.02, 0.05, 0.2, 0.01), accent, -0.06, 0.63, -0.02, { rx: 0.42, cast: false });
+  sp(g, M.glow('#ff3a2a', 1.6), 0.025, 0, 0.84, -0.84, { cast: false });
   let basketG: THREE.Group | null = null;
   if (basket) {
-    basketG = group(g, 0, 0.86, -0.78);
-    bx(basketG, M.fabric('#b98a5a', '#fff4dc', 0.9), 0.42, 0.22, 0.32, 0, 0, 0, 0.04);
-    bx(basketG, M.fabric('#f4efe6', '#fff', 0.9), 0.36, 0.04, 0.26, 0, 0.18, 0, 0.02);
+    basketG = group(g, 0, 0.84, -0.66);
+    bx(basketG, M.fabric('#b98a5a', '#fff4dc', 0.9), 0.44, 0.24, 0.36, 0, 0, 0, 0.04);
+    bx(basketG, M.fabric('#f4efe6', '#fff', 0.9), 0.38, 0.04, 0.3, 0, 0.2, 0, 0.02);
   }
   return { group: g, wheels, basket: basketG };
+}
+
+/** Chain-link fence run: posts + rail + see-through diamond mesh. */
+export function chainLink(p: THREE.Object3D, x: number, z0: number, z1: number, h = 1.4) {
+  const g = group(p, 0, 0, 0);
+  const len = Math.abs(z1 - z0);
+  const post = M.metal('#9aa0a6', 0.45);
+  const n = Math.max(2, Math.round(len / 3));
+  for (let i = 0; i <= n; i++) cy(g, post, 0.03, 0.03, h, x, 0, z0 + ((z1 - z0) * i) / n, 6);
+  cy(g, post, 0.022, 0.022, len, x, h - 0.02, (z0 + z1) / 2, 6, { rx: Math.PI / 2 });
+  const tex = chainTex().clone();
+  tex.repeat.set(len / 0.6, h / 0.6);
+  tex.needsUpdate = true;
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(len, h),
+    new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.4, transparent: false, side: THREE.DoubleSide, metalness: 0.6, roughness: 0.5, color: '#c9ced3' })
+  );
+  mesh.rotation.y = Math.PI / 2;
+  mesh.position.set(x, h / 2, (z0 + z1) / 2);
+  g.add(mesh);
+  return g;
+}
+
+let chainCache: THREE.Texture | null = null;
+function chainTex() {
+  if (chainCache) return chainCache;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d')!;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, 32);
+  ctx.lineTo(32, 0);
+  ctx.lineTo(64, 32);
+  ctx.lineTo(32, 64);
+  ctx.closePath();
+  ctx.stroke();
+  chainCache = new THREE.CanvasTexture(c);
+  chainCache.wrapS = chainCache.wrapT = THREE.RepeatWrapping;
+  chainCache.userData.shared = true;
+  return chainCache;
+}
+
+/** Tall ornamental grass clump (sways with the foliage shader). */
+export function grasses(p: THREE.Object3D, x: number, z: number, s = 1, tone = '#c9b77a', seed = 1) {
+  const g = group(p, x, 0, z);
+  const r = rng(seed + Math.floor(x * 17 + z * 5));
+  const m = M.foliage(tone, 0.9);
+  const m2 = M.foliage('#8a9a5a', 0.9);
+  for (let i = 0; i < 14; i++) {
+    const a = r() * Math.PI * 2;
+    const h = (1.2 + r() * 0.9) * s;
+    put(g, G.box(0.025, h, 0.025, 0), i % 3 ? m : m2, Math.cos(a) * 0.12 * s, h / 2, Math.sin(a) * 0.12 * s, {
+      rz: Math.cos(a) * 0.18,
+      rx: Math.sin(a) * 0.18,
+      cast: false,
+    });
+    if (i % 2) sp(g, m, 0.05 * s, Math.cos(a) * (0.12 + h * 0.18) * s, h, Math.sin(a) * (0.12 + h * 0.18) * s, { s: [0.6, 2.2, 0.6], cast: false });
+  }
+  return g;
+}
+
+/** Generic white EV (no badges) — for the garage charger scene. */
+export function evCar(ctx: SetCtx, x: number, z: number, ry = 0, paint = '#f2f3f5') {
+  const g = group(ctx.root, x, 0, z, ry);
+  const body = M.gloss(paint, 0.25, 1);
+  const glass = M.gloss('#1e2328', 0.1, 1);
+  put(g, G.box(1.9, 0.62, 4.5, 0.28), body, 0, 0.62, 0);
+  put(g, G.box(1.66, 0.52, 2.5, 0.3), glass, 0, 1.1, -0.2);
+  put(g, G.box(1.7, 0.08, 2.2, 0.04), body, 0, 1.37, -0.2);
+  for (const [wx, wz] of [[-0.86, 1.45], [0.86, 1.45], [-0.86, -1.45], [0.86, -1.45]]) {
+    put(g, G.cyl(0.36, 0.36, 0.26, 24), M.std('#151517', 0.8), wx, 0.36, wz, { rz: Math.PI / 2 });
+    put(g, G.cyl(0.24, 0.24, 0.27, 20), M.metal('#b8bdc3', 0.3), wx, 0.36, wz, { rz: Math.PI / 2 });
+  }
+  put(g, G.box(1.5, 0.05, 0.04, 0.02), M.glow('#f4fbff', 1.6), 0, 0.82, 2.25, { cast: false });
+  put(g, G.box(1.6, 0.05, 0.04, 0.02), M.glow('#ff2a2a', 1.6), 0, 0.86, -2.25, { cast: false });
+  ctx.solidAt(x, z, ry ? 4.6 : 2.0, ry ? 2.0 : 4.6);
+  return g;
 }
 
 export function missionArch(ctx: SetCtx, x: number, z: number, ry = 0) {

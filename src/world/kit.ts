@@ -263,15 +263,17 @@ export function windowUnit(
   h: number,
   y: number,
   backdrop: THREE.Texture,
-  opts: { curtains?: string; shaft?: string; frame?: string; side?: 'back' | 'left' | 'right'; shade?: string; key?: string } = {}
+  opts: { curtains?: string; shaft?: string; frame?: string; side?: 'back' | 'left' | 'right'; shade?: string; key?: string; noBackdrop?: boolean } = {}
 ) {
   const side = opts.side ?? 'back';
   const ry = side === 'back' ? 0 : side === 'left' ? Math.PI / 2 : -Math.PI / 2;
   const g = group(ctx.root, x, y, z, ry);
   const frame = M.std(opts.frame ?? '#f3eee6', 0.5);
-  const bd = new THREE.Mesh(G.plane(w, h), M.unlit(backdrop, `bd${opts.key ?? backdrop.uuid}`));
-  bd.position.set(0, h / 2, -0.12);
-  g.add(bd);
+  if (!opts.noBackdrop) {
+    const bd = new THREE.Mesh(G.plane(w, h), M.unlit(backdrop, `bd${opts.key ?? backdrop.uuid}`));
+    bd.position.set(0, h / 2, -0.12);
+    g.add(bd);
+  }
   put(g, G.plane(w, h), M.glass('#dff1f7', 0.12), 0, h / 2, -0.02, { cast: false, receive: false });
   bx(g, frame, w + 0.16, 0.08, 0.16, 0, -0.04, 0, 0.01);
   bx(g, frame, w + 0.16, 0.08, 0.16, 0, h - 0.04, 0, 0.01);

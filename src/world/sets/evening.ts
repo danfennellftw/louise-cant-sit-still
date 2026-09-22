@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import { SetCtx, room, wallZ, floorMat, plant, floorLampArc, door, rug, bench } from '../kit';
+import { SetCtx, room, wallZ, floorMat, plant, floorLampArc, door, rug, bench, signBoard } from '../kit';
 import { KITS, CAM_INTERIOR, makeSet } from '../lighting';
 import { M } from '../../art/materials';
 import { TX } from '../../art/textures';
 import { G, bx, cy, put, sp } from '../../art/geo';
 import { Particles } from '../../art/fx';
 import { sofa, dogBed } from '../../art/props/home';
-import { ebike, lampPost, bush, water } from '../../art/props/outdoor';
+import { ebike, lampPost, bush, water, evCar } from '../../art/props/outdoor';
 import type { BuiltSet, StopHooks } from '../types';
 import type { QualityLevel } from '../../engine/quality';
 
@@ -34,10 +34,16 @@ export function buildGarage(q: QualityLevel): BuiltSet {
   }
   ctx.solid(6.8, -3.7, 7.5, -1.1);
   // snowboards leaning on the wall
-  put(ctx.root, G.box(0.3, 1.5, 0.04, 0.14), M.gloss('#ff8fb1', 0.3, 0.8), 7.3, 0.78, 0.2, { ry: Math.PI / 2, rz: 0.12 });
-  put(ctx.root, G.box(0.3, 1.5, 0.04, 0.14), M.gloss('#2f2f33', 0.3, 0.8), 7.3, 0.78, 0.6, { ry: Math.PI / 2, rz: 0.08 });
+  // snowboard wall rack (their pink board + two more)
+  bx(ctx.root, M.std('#2a2a2e', 0.5, 0.5), 0.06, 0.08, 1.8, 7.42, 1.15, -0.1, 0.01);
+  bx(ctx.root, M.std('#2a2a2e', 0.5, 0.5), 0.06, 0.08, 1.8, 7.42, 2.05, -0.1, 0.01);
+  [['#ff8fb1', -0.7], ['#f4f1ea', -0.1], ['#2f2f33', 0.5]].forEach(([c, zz]) => {
+    const z = zz as number;
+    put(ctx.root, G.box(0.3, 1.55, 0.035, 0.15), M.gloss(c as string, 0.3, 0.8), 7.36, 1.65, z, { ry: Math.PI / 2 });
+    for (const by of [1.35, 1.95]) bx(ctx.root, M.std('#1b1b1f', 0.5), 0.08, 0.1, 0.22, 7.3, by, z, 0.02);
+  });
   // the sauna
-  const cedar = M.tex(TX.slats('#c98a55'), 0.7, 0, 'cedar');
+  const cedar = M.tex(TX.slats('#e6c38c', 10, 'pine'), 0.65, 0, 'pine');
   const sx = -5;
   const sz = -2.3;
   bx(ctx.root, cedar, 2.8, 2.3, 0.12, sx, 0, sz - 1.1, 0.02);
@@ -46,7 +52,15 @@ export function buildGarage(q: QualityLevel): BuiltSet {
   bx(ctx.root, cedar, 2.9, 0.12, 2.4, sx, 2.3, sz, 0.02);
   bx(ctx.root, M.tex(TX.slats('#b8784a', 8, 'bench'), 0.6, 0, 'benchc'), 2.6, 0.45, 0.6, sx, 0, sz - 0.7, 0.03);
   put(ctx.root, G.box(2.6, 2.1, 0.03, 0), M.glass('#ffd9b0', 0.2), sx, 1.1, sz + 1.12, { cast: false, receive: false });
-  bx(ctx.root, cedar, 2.8, 0.12, 0.14, sx, 2.18, sz + 1.12, 0.02);
+  bx(ctx.root, M.gloss('#1b1b1f', 0.35, 0.6), 2.8, 0.12, 0.14, sx, 2.18, sz + 1.12, 0.02);
+  for (const ex of [-1.38, 1.38]) bx(ctx.root, M.gloss('#1b1b1f', 0.35, 0.6), 0.1, 2.2, 0.14, sx + ex, 0, sz + 1.12, 0.02);
+  const ledStrip = new THREE.MeshStandardMaterial({ color: '#000', emissive: '#3aa0ff', emissiveIntensity: 2.2 });
+  put(ctx.dyn, G.box(2.6, 0.03, 0.03, 0.01), ledStrip, sx, 2.26, sz + 1.2, { cast: false });
+  // infrared panels (dark with a warm grid that glows as it heats)
+  const irMat = new THREE.MeshStandardMaterial({ color: '#2a2a2e', emissive: '#ff6a2a', emissiveIntensity: 0.05, roughness: 0.6 });
+  for (const [px, pz, pry] of [[sx, sz - 1.02, 0], [sx - 1.32, sz - 0.3, Math.PI / 2], [sx + 1.32, sz - 0.3, -Math.PI / 2]] as const) {
+    put(ctx.dyn, G.box(0.9, 1.1, 0.03, 0.01), irMat, px, 1.35, pz, { ry: pry, cast: false });
+  }
   bx(ctx.root, M.metal('#2a2a2a', 0.4), 0.4, 0.55, 0.4, sx + 1.0, 0, sz + 0.5, 0.03);
   const coalsMat = new THREE.MeshStandardMaterial({ color: '#2a1a14', emissive: '#ff5a1a', emissiveIntensity: 0.2, roughness: 0.9 });
   for (let i = 0; i < 9; i++) put(ctx.dyn, G.dodeca(0.07), coalsMat, sx + 0.9 + (i % 3) * 0.09, 0.6, sz + 0.4 + Math.floor(i / 3) * 0.09, { ry: i });
@@ -67,11 +81,20 @@ export function buildGarage(q: QualityLevel): BuiltSet {
   water(ctx, -2.3, -2.9, 1.3, 1.3, '#6fb6d8', 6, 0.72);
   ctx.solidAt(-2.3, -2.9, 1.5, 1.5);
   // parked e-bike + charger
-  const bike = ebike(ctx.root, 3.0, 1.2, 0.5, '#e9e2d6', true);
+  const bike = ebike(ctx.root, -0.9, 3.45, 1.35, '#3a3f45', true);
   void bike;
-  ctx.solidAt(3.0, 1.2, 1.2, 1.6);
-  bx(ctx.root, M.gloss('#1b1b1f', 0.3), 0.3, 0.4, 0.15, 5.0, 1.0, -4.05, 0.03);
-  put(ctx.root, G.plane(0.1, 0.05), M.glow('#6fe36f', 2), 5.0, 1.3, -3.97, { cast: false });
+  ctx.solidAt(-0.9, 3.45, 1.6, 0.9);
+  // EV on the charger (wall box with green status ring + coiled cable)
+  evCar(ctx, 3.9, -0.8, 0, '#f2f3f5');
+  bx(ctx.root, M.gloss('#f4f4f6', 0.3, 0.3), 0.34, 0.46, 0.14, 3.9, 1.05, -4.05, 0.05);
+  put(ctx.root, G.ring(0.06, 0.08, 24), M.glow('#6fe36f', 2.2), 3.9, 1.32, -3.97, { cast: false });
+  put(ctx.root, G.torus(0.16, 0.025, Math.PI * 2, 6, 20), M.std('#151517', 0.6), 3.9, 0.85, -3.95, {});
+  const cable = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(3.9, 1.0, -3.98), new THREE.Vector3(3.9, 0.3, -3.7), new THREE.Vector3(3.5, 0.08, -3.4),
+    new THREE.Vector3(3.2, 0.3, -3.1), new THREE.Vector3(3.15, 0.75, -3.0),
+  ]);
+  ctx.root.add(new THREE.Mesh(new THREE.TubeGeometry(cable, 24, 0.022, 6), M.std('#151517', 0.6)));
+  signBoard(ctx.root, TX.sign('CHARGING 78%', { w: 256, h: 64, fg: '#6fe36f', bg: '#101214' }), 3.9, 1.6, -3.99, 0.5, 0.12, 0, 0.8, 'evc');
   // yoga mat + mini fridge
   put(ctx.root, G.box(0.7, 0.012, 1.8, 0.005), M.std('#b48cff', 0.9), 1.0, 0.007, -1.4, { ry: 0.2, cast: false });
   bx(ctx.root, M.gloss('#e9e9ee', 0.3, 0.4), 0.6, 0.85, 0.6, 5.8, 0, -3.6, 0.04);
@@ -85,6 +108,8 @@ export function buildGarage(q: QualityLevel): BuiltSet {
   let heat = 0;
   ctx.on((_dt, t) => {
     coalsMat.emissiveIntensity = 0.2 + heat * (1.8 + Math.sin(t * 5) * 0.3);
+    irMat.emissiveIntensity = 0.05 + heat * (0.9 + Math.sin(t * 2) * 0.1);
+    ledStrip.emissiveIntensity = 1.8 + Math.sin(t * 1.5) * 0.4;
     if (glow) glow.intensity = 0.6 + heat * 3.5;
     steam.opacity = 0.04 + heat * 0.12;
     ledMat.emissive.set(heat > 0.5 ? '#ff7a3a' : '#6fd3ff');
@@ -101,7 +126,7 @@ export function buildGarage(q: QualityLevel): BuiltSet {
       {
         id: 'heat', label: 'Crank the sauna', verb: 'Crank', pos: [-3.2, -0.5], stand: [-3.2, -0.55], face: Math.PI, pose: 'work',
         mini: { type: 'mash', title: 'Crank it to 180°F', hint: 'Mash the button or Space', duration: 2.4 },
-        intro: [{ who: 'narrator', text: 'Garage sauna. The one place Louise agrees to sit… for science.' }],
+        intro: [{ who: 'narrator', text: 'The garage: pine-box sauna, snowboards, the car on the charger, the e-bike topping up. The one place Louise agrees to sit… for science.' }],
         refill: 30, hearts: 2, color: '#ff9e5a', push: { dist: 4.6, height: 2.8 },
       },
       {
