@@ -47,6 +47,12 @@ Vercel: framework preset **Vite**, build `npm run build`, output `dist`. `vercel
   - balance (creek bridge, stair climber)
   - dialogue choices (AI meetup, Dan, YouTube pick)
   - a tap-through phone call with Nina
+- **Incoming calls.** The phone rings mid-day and you pick Answer, Speaker or Decline:
+  - **Mom** calls in the condo morning (after your second stop). She speaks Tagalog with English subtitles, plus her signature "Are you there?", "Just calling. Just calling." and "Nothing nothing."
+  - **Nina** calls once while you're out at a gym or errand stop.
+  - Answer opens the call: +hearts, but a small meter hit for standing still.
+  - Speaker plays captions at the top while you keep walking: +10 meter.
+  - Decline: Mom calls straight back. Decline twice and her texts land with a Mom-guilt meter hit.
 - **Mochi & Leo** follow and wander. They also:
   - steal socks and croissants (chase them down to get the item back)
   - sit in your path for pets
@@ -54,7 +60,7 @@ Vercel: framework preset **Vite**, build `npm run build`, output `dist`. `vercel
   - celebrate completed stops
   - ride in the e-bike basket
   - get herded to their beds in the finale
-- **Day structure:** five acts — Morning condo → Fitness circuit (Grit Cycle Dana Point, Shredz Ladera Ranch, Crunch San Clemente, EOS Fitness Rancho Santa Margarita) → Errands (grocery, TJ Maxx, Marshall's, mall with Nike, skincare and massage) → Social (coffee plaza AI meetup + Nina call, e-bike trail RMV → San Juan Capistrano → Dana Point) → Wind-down (garage sauna, YouTube in bed with the dogs, dogs downstairs).
+- **Day structure:** five acts — Morning condo → Fitness circuit (Grit Cycle Dana Point, Shredz Ladera Ranch, Crunch San Clemente, EOS Fitness Rancho Santa Margarita) → Errands (grocery, TJ Maxx, Marshall's, mall with Nike, skincare and massage) → Social (coffee plaza AI meetup + Nina call, e-bike trail RMV → San Juan Capistrano → Dana Point) → Wind-down (garage sauna between Louise's gray Model Y and Dan's blue Model 3, YouTube in bed with the dogs, dogs downstairs).
   - An act stinger plays between acts.
   - A day-map navigator lets you jump to any stop at any time (including later chapters and finished stops, which reset for a replay). The story order is only a suggestion: the next stops glow. The HUD map button travels too.
 - **Onboarding:** from the title screen you're playing in under 15 seconds. A coach walks you through moving and the first stop, then explains the meter. If you stall, soft breadcrumbs point to the next stop. When the next stop is off-screen, an edge arrow points to it.

@@ -10,12 +10,14 @@ export interface Rect {
   z1: number;
 }
 
-export type Speaker = 'louise' | 'dan' | 'nina' | 'mochi' | 'leo' | 'narrator' | 'npc';
+export type Speaker = 'louise' | 'dan' | 'nina' | 'mom' | 'mochi' | 'leo' | 'narrator' | 'npc';
 
 export interface Line {
   who: Speaker;
   text: string;
   name?: string;
+  /** English subtitle for non-English lines (Mom's Tagalog). */
+  sub?: string;
 }
 
 export type MiniType = 'pull' | 'sort' | 'place' | 'timing' | 'mash' | 'hold' | 'balance' | 'dialogue' | 'phone' | 'clean';
@@ -53,6 +55,8 @@ export interface MiniSpec {
   twitchy?: boolean;
   /** Clean mini: the dog messes on the floor, in the order they're laid out. */
   mess?: ('poop' | 'pee' | 'pad')[];
+  /** Phone mini: caller avatar. */
+  caller?: { letter: string; color: string };
   /** Clean mini: draw the furniture leg Leo picked. */
   leg?: 'piano' | 'stool';
 }
@@ -122,6 +126,8 @@ export interface CamSpec {
   yaw: number;
   lookY: number;
   lookAhead: number;
+  /** Phone-portrait override (replaces the default portrait pull-back). */
+  portrait?: { dist: number; height: number; fov: number };
 }
 
 export type AmbienceId = 'home' | 'homeNight' | 'gym' | 'spin' | 'retail' | 'mall' | 'outdoor' | 'trail' | 'garage' | 'night';

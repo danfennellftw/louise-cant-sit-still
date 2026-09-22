@@ -19,6 +19,7 @@ import { showDayMap } from '../ui/daymap';
 import { DogPack, type Dog } from './dogs';
 import { resolveCircle, clampBounds, separate } from './physics';
 import { puddleMat } from '../world/sets/condoDressing';
+import { CALLS, type CallerId } from './calls';
 import { SETS, ACTS, actOf, allDone, isFirstOfAct, roast, loadSave, writeSave, clearSave, type SetId, type SaveData } from './story';
 import type { BuiltSet, StopDef, LightKit, MarkSpot, Line } from '../world/types';
 
@@ -29,6 +30,9 @@ const JOG = 5.2;
 const ACCEL = 15;
 const DECEL = 19;
 const METER_MAX = 100;
+
+/** Sets where Nina's incoming call can land (she calls while Louise is out). */
+const OUT_SETS: SetId[] = ['grit', 'shredz', 'crunch', 'eos', 'grocery', 'tjmaxx', 'marshalls', 'mall'];
 
 const LEO_NAGS = [
   'Dan: “Why does the piano smell like… oh no. LEO.”',
@@ -225,6 +229,11 @@ export class Game {
     void this.enterSet(id, true);
   }
 
+  /** Dev helper: ring a phone call now (window.__game.debugCall('mom')). */
+  debugCall(who: CallerId) {
+    this.pendingCall = { who, delay: 0.05, attempt: 1 };
+  }
+
   /** Dev helper: open a stop in the current set directly. */
   debugStop(id: string) {
     const s = this.set?.stops.find((x) => x.id === id);
@@ -270,6 +279,7 @@ export class Game {
     this.markPending = null;
     this.leoMarkN = 0;
     this.leoMarkT = set.markSpots ? 32 : 0;
+    if (OUT_SETS.includes(id) && !this.save.calls?.nina && !this.pendingCall) this.pendingCall = { who: 'nina', delay: 14, attempt: 1 };
     if (set.exit) {
       this.exitMarker = new StopMarker('#fff6ec', 0.9, 2.4);
       this.exitMarker.root.position.set(set.exit.x, 0, set.exit.z);
@@ -604,6 +614,8 @@ export class Game {
     this.lastProgress = this.t;
     this.ui.dropLabel(`stop-${stop.id}`);
     if (set.markSpots && this.leoMarkN === 0) this.leoMarkT = Math.min(this.leoMarkT, 7);
+    if (this.setId === 'condo' && !stop.transient && this.stopsDone.size >= 2 && !this.save.calls?.mom && !this.pendingCall && !this.callBusy)
+      this.pendingCall = { who: 'mom', delay: 4, attempt: 1 };
     this.refreshObjectives();
     this.still = 0;
     this.phase = 'play';
@@ -756,6 +768,109 @@ export class Game {
     this.refreshObjectives();
     this.ui.toast(`Leo peed on the ${spot.label}. Again.`, 'warn');
     this.bark(this.dogs.dogs[1], '*zero regrets*');
+  }
+
+  /* =================== phone calls: Mom (Tagalog) and Nina =================== */
+  private pendingCall: { who: CallerId; delay: number; attempt: number } | null = null;
+  private callBusy = false;
+
+  private updateCalls(dt: number) {
+    if (!this.pendingCall || this.callBusy) return;
+    this.pendingCall.delay -= dt;
+    if (this.pendingCall.delay > 0) return;
+    const { who, attempt } = this.pendingCall;
+    this.pendingCall = null;
+    void this.ringCall(who, attempt);
+  }
+
+  private markCall(who: CallerId) {
+    this.save.calls = { ...(this.save.calls ?? {}), [who]: true };
+    writeSave(this.save);
+  }
+
+  private meterNudge(delta: number, label: string) {
+    this.meter = clamp(this.meter + delta, 0, METER_MAX);
+    if (delta > 0) this.ui.meterBoost();
+    const s = this.project(this.louise.root.position.clone().setY(1.9));
+    if (s) this.ui.floater(`${delta > 0 ? '+' : '−'}${Math.abs(delta)} restless · ${label}`, s.x, s.y - 20);
+  }
+
+  private async ringCall(who: CallerId, attempt: number) {
+    this.callBusy = true;
+    const c = CALLS[who];
+    haptic([180, 90, 180]);
+    const action = await this.ui.incomingCall({ name: c.name, letter: c.letter, color: c.color, attempt });
+    const where = SETS[this.setId].title;
+    try {
+      if (action === 'answer' && this.phase === 'play') await this.answerCall(who, where);
+      else if (action === 'answer' || action === 'speaker') await this.speakerCall(who, where);
+      else this.missedCall(who, attempt, action);
+    } finally {
+      this.callBusy = false;
+    }
+  }
+
+  private async answerCall(who: CallerId, where: string) {
+    const c = CALLS[who];
+    this.phase = 'stop';
+    this.ui.hidePrompt();
+    this.ui.coach(null);
+    this.hideGuides();
+    this.vel.set(0, 0, 0);
+    this.autoTarget = null;
+    this.tapTarget = null;
+    this.pendingStop = null;
+    const at = this.louise.root.position.clone();
+    this.louise.setState('phone');
+    this.cam.pushSpec = { dist: 3.8, height: 2.3, yaw: 0.35 };
+    this.cam.focus = at.clone();
+    void tweens.to(0.6, (k) => (this.cam.push = k), easeInOutCubic);
+    this.dogs.stare(at);
+    const res = await this.minis.run({ type: 'phone', title: c.name, caller: { letter: c.letter, color: c.color }, lines: c.answer(where), choices: c.choices }, () => {});
+    this.audio.chime();
+    this.confetti.burst(at.clone().setY(1.5), 30, 3);
+    this.addHearts(2 + res.hearts, at.clone().setY(1.5));
+    if (who === 'mom') {
+      await this.ui.dialog([{ who: 'louise', text: 'Nothing nothing. Classic Ma. …Love her so much.' }]);
+      this.meterNudge(-8, 'stood still for Mom');
+    } else {
+      this.meterNudge(-5, 'stood still for Nina');
+    }
+    this.dogs.release();
+    void tweens.to(0.5, (k) => (this.cam.push = 1 - k), easeInOutCubic);
+    this.cam.focus = null;
+    this.louise.setState('idle');
+    this.still = 0;
+    this.lastProgress = this.t;
+    this.markCall(who);
+    if (this.phase === 'stop') this.phase = 'play';
+  }
+
+  private async speakerCall(who: CallerId, where: string) {
+    const c = CALLS[who];
+    this.ui.toast(`${c.name} is on speaker — keep moving!`, 'good');
+    await this.ui.speakerCall(c.name, c.color, c.speaker(where));
+    this.meterNudge(10, 'walk-and-talk');
+    this.addHearts(2, this.louise.root.position.clone().setY(1.6));
+    this.ui.toast(who === 'mom' ? 'Talked to Mom without stopping. She never noticed. (She noticed.)' : 'Walk-and-talk with Nina: complete.', 'good');
+    this.markCall(who);
+  }
+
+  private missedCall(who: CallerId, attempt: number, action: 'decline' | 'missed' | 'answer' | 'speaker') {
+    const c = CALLS[who];
+    if (who === 'mom' && attempt < 2) {
+      this.ui.toast(action === 'missed' ? 'Missed call: Mom' : 'Declined Mom… she’s calling back.', 'warn');
+      this.pendingCall = { who, delay: 5, attempt: attempt + 1 };
+      return;
+    }
+    c.missedTexts.forEach((t, i) => setTimeout(() => this.ui.toast(`${c.name}: “${t}”`, i ? '' : 'warn'), 600 + i * 1000));
+    if (who === 'mom') {
+      setTimeout(() => {
+        this.meterNudge(-8, 'Mom guilt');
+        this.ui.toast(`${attempt} missed calls from Mom. She was just calling.`, 'warn');
+      }, 600 + c.missedTexts.length * 1000);
+    }
+    this.markCall(who);
   }
 
   private nextStop(): StopDef | null {
@@ -984,6 +1099,7 @@ export class Game {
         basket: this.set.vehicle ? this.bike.basket : null,
       });
       this.updateLeoMarks(dt);
+      if (this.phase === 'play') this.updateCalls(dt);
       if (this.set.leaves && this.set.vehicle) this.set.leaves.center.set(L.x, 0, L.z);
       this.set.update(dt, this.t);
     }

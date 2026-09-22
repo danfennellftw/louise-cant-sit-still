@@ -728,7 +728,8 @@ export class MiniGames {
   private phone(spec: MiniSpec, progress: Progress) {
     const { bar, body } = this.shell(spec);
     this.audio.ring();
-    body.innerHTML = `<div class="phone"><div class="phone-head"><div class="av">N</div>${esc(spec.title)}<small>on call · 00:00</small></div><div class="phone-screen"></div></div><div class="tap-next">Tap to continue</div><div class="choices"></div>`;
+    const av = spec.caller ?? { letter: spec.title.charAt(0), color: '#b48cff' };
+    body.innerHTML = `<div class="phone"><div class="phone-head"><div class="av" style="background:${av.color}">${esc(av.letter)}</div>${esc(spec.title)}<small>on call · 00:00</small></div><div class="phone-screen"></div></div><div class="tap-next">Tap to continue</div><div class="choices"></div>`;
     const screen = body.querySelector('.phone-screen') as HTMLElement;
     const choices = body.querySelector('.choices') as HTMLElement;
     const tapNext = body.querySelector('.tap-next') as HTMLElement;
@@ -744,6 +745,12 @@ export class MiniGames {
       const b = document.createElement('div');
       b.className = `bubble ${l.who === 'louise' ? 'me' : 'them'}`;
       b.textContent = l.text;
+      if (l.sub) {
+        const sub = document.createElement('small');
+        sub.className = 'bubble-sub';
+        sub.textContent = l.sub;
+        b.appendChild(sub);
+      }
       screen.appendChild(b);
       screen.scrollTop = screen.scrollHeight;
       this.audio.pop();

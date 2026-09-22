@@ -11,8 +11,8 @@ export const PORTRAIT: Partial<Record<Speaker, string>> = {
   mochi: 'portraits/mochi.webp',
   leo: 'portraits/leo.webp',
 };
-const NAMES: Record<Speaker, string> = { louise: 'Louise', dan: 'Dan', nina: 'Nina', mochi: 'Mochi', leo: 'Leo', narrator: 'Narrator', npc: '' };
-const NAME_COLORS: Partial<Record<Speaker, string>> = { louise: '#ff6f59', dan: '#3d4a6a', nina: '#b48cff', mochi: '#c9a06a', leo: '#8a5a2a', narrator: '#2b1d2e', npc: '#4fb89a' };
+const NAMES: Record<Speaker, string> = { louise: 'Louise', dan: 'Dan', nina: 'Nina', mom: 'Mom', mochi: 'Mochi', leo: 'Leo', narrator: 'Narrator', npc: '' };
+const NAME_COLORS: Partial<Record<Speaker, string>> = { louise: '#ff6f59', dan: '#3d4a6a', nina: '#b48cff', mom: '#e86a8f', mochi: '#c9a06a', leo: '#8a5a2a', narrator: '#2b1d2e', npc: '#4fb89a' };
 
 export function esc(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -21,7 +21,7 @@ export function esc(s: string) {
 export function portraitHtml(who: Speaker, cls = 'dlg-portrait') {
   const src = PORTRAIT[who];
   if (src) return `<img class="${cls}" src="${assetUrl(src)}" alt="${NAMES[who]}" />`;
-  const letter = who === 'nina' ? 'N' : who === 'npc' ? '☺' : '✦';
+  const letter = who === 'nina' ? 'N' : who === 'mom' ? 'M' : who === 'npc' ? '☺' : '✦';
   return `<div class="${cls} narrator">${letter}</div>`;
 }
 
@@ -254,6 +254,82 @@ export class UI {
         window.addEventListener('keydown', key);
       }, 120);
     });
+  }
+
+  /* ---------- phone: incoming call card + speakerphone captions ---------- */
+  /** Resolves with what the player did; unanswered calls time out as 'missed'. */
+  incomingCall(c: { name: string; letter: string; color: string; attempt: number }, ms = 12000) {
+    this.audio.ring();
+    const el = document.createElement('div');
+    el.className = 'call-card';
+    el.innerHTML = `
+      <div class="call-av" style="background:${c.color}">${esc(c.letter)}</div>
+      <div class="call-who"><b>${esc(c.name)}${c.attempt > 1 ? ` <span>(${c.attempt})</span>` : ''}</b><small>${c.attempt > 1 ? 'calling again…' : 'incoming call…'}</small></div>
+      <div class="call-btns">
+        <button class="call-btn decline" data-a="decline" aria-label="Decline"><svg viewBox="0 0 24 24"><path d="M12 9c-1.6 0-3.2.3-4.6.8v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.7 1.8-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3L.3 13.2c-.2-.2-.3-.4-.3-.7s.1-.5.3-.7C3.4 8.9 7.5 7 12 7s8.6 1.9 11.7 4.8c.2.2.3.4.3.7s-.1.5-.3.7l-2.4 2.4c-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3-.8-.7-1.7-1.3-2.7-1.8-.3-.2-.6-.5-.6-.9V9.8C15.2 9.3 13.6 9 12 9Z"/></svg><span>Decline</span></button>
+        <button class="call-btn speaker" data-a="speaker" aria-label="Speaker"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4Zm-2.5-8.8v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6Z"/></svg><span>Speaker</span></button>
+        <button class="call-btn answer" data-a="answer" aria-label="Answer"><svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2Z"/></svg><span>Answer</span></button>
+      </div>
+      <div class="call-keys">Enter answer · S speaker · X decline</div>`;
+    document.body.appendChild(el);
+    const ring = window.setInterval(() => this.audio.ring(), 2400);
+    return new Promise<'answer' | 'speaker' | 'decline' | 'missed'>((resolve) => {
+      let done = false;
+      const finish = (a: 'answer' | 'speaker' | 'decline' | 'missed') => {
+        if (done) return;
+        done = true;
+        window.clearInterval(ring);
+        window.clearTimeout(timeout);
+        window.removeEventListener('keydown', key, true);
+        el.classList.add('out');
+        setTimeout(() => el.remove(), 300);
+        resolve(a);
+      };
+      const timeout = window.setTimeout(() => finish('missed'), ms);
+      const key = (e: KeyboardEvent) => {
+        const k = e.key.toLowerCase();
+        const a = k === 'enter' ? 'answer' : k === 's' ? 'speaker' : k === 'x' ? 'decline' : null;
+        if (!a) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        finish(a);
+      };
+      window.addEventListener('keydown', key, true);
+      const stop = (e: Event) => e.stopPropagation();
+      ['pointerdown', 'pointerup', 'touchstart', 'mousedown'].forEach((t) => el.addEventListener(t, stop));
+      el.querySelectorAll<HTMLButtonElement>('.call-btn').forEach((b) =>
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          finish(b.dataset.a as 'answer' | 'speaker' | 'decline');
+        })
+      );
+    });
+  }
+
+  /** Speakerphone: captions tick along at the top while she keeps moving. */
+  async speakerCall(name: string, color: string, lines: Line[]) {
+    const el = document.createElement('div');
+    el.className = 'call-caption';
+    el.innerHTML = `<div class="cc-head"><span class="cc-dot" style="background:${color}"></span>On speaker · ${esc(name)}<small>00:00</small></div><div class="cc-line"></div>`;
+    document.body.appendChild(el);
+    const line = el.querySelector('.cc-line') as HTMLElement;
+    const clock = el.querySelector('small') as HTMLElement;
+    const start = performance.now();
+    const iv = window.setInterval(() => {
+      const s = Math.floor((performance.now() - start) / 1000);
+      clock.textContent = `00:${String(s).padStart(2, '0')}`;
+    }, 500);
+    for (const l of lines) {
+      line.innerHTML = `<b style="color:${l.who === 'louise' ? '#ff9e7a' : color}">${esc(NAMES[l.who] || l.name || '')}</b> ${esc(l.text)}${l.sub ? `<small>${esc(l.sub)}</small>` : ''}`;
+      line.classList.remove('in');
+      void line.offsetWidth;
+      line.classList.add('in');
+      this.audio.pop();
+      await new Promise((r) => setTimeout(r, 1500 + l.text.length * 38));
+    }
+    window.clearInterval(iv);
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 350);
   }
 
   /* ---------- transitions ---------- */

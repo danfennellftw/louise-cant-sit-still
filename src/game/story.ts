@@ -98,6 +98,8 @@ export interface SaveData {
   sits: number;
   dogs: number;
   tutorial: boolean;
+  /** Phone calls already handled today (answered, on speaker, or declined for good). */
+  calls?: Partial<Record<'mom' | 'nina', boolean>>;
 }
 
 const KEY = 'lcss.save.v2';
