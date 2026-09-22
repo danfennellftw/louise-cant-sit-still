@@ -16,7 +16,7 @@ import type { QualityLevel } from '../../engine/quality';
 
 const SHOPPERS = { tops: ['#f4a6a0', '#9ad0f5', '#fff3c4', '#c9e7c1', '#d7ccc8', '#37474f', '#ffffff'], bottoms: ['#2a3a5a', '#e7dccb', '#3a3a3a', '#8a6a4a'] };
 
-function glowBars(ctx: SetCtx, x0: number, x1: number, zs: number[], y: number) {
+export function glowBars(ctx: SetCtx, x0: number, x1: number, zs: number[], y: number) {
   for (const z of zs) put(ctx.root, G.box(x1 - x0, 0.05, 0.25, 0.02), M.glow('#fffaf0', 1.4), (x0 + x1) / 2, y, z, { cast: false });
 }
 
@@ -46,7 +46,6 @@ export function buildGrocery(q: QualityLevel): BuiltSet {
   cart(ctx.root, 7.8, 0.4, 0.3, green);
   cart(ctx.root, 8.2, -0.6, 0.2, green);
   ctx.solid(7.4, -1.1, 8.6, 0.9);
-  glowBars(ctx, -8, 8, [-2.8, 0, 2.8], 3.4);
   plant(ctx.root, 8.4, -3.9, 1, '#ffffff', 'fig');
   door(ctx, 8.9, 1.9, 'right', '#ffffff');
   const npcs = [spawnNpc(ctx, 61, -2.6, 0, Math.PI, 'shop', SHOPPERS), spawnNpc(ctx, 62, -5.4, 1.6, 0.3, 'shop', SHOPPERS), spawnNpc(ctx, 63, 6.4, 2.35, 0, 'idle', SHOPPERS)];
@@ -117,7 +116,6 @@ export function buildTjMaxx(q: QualityLevel): BuiltSet {
   ctx.solidAt(-7.6, 1.6, 0.6, 0.6);
   ctx.solidAt(7.4, -1.2, 0.6, 0.6);
   checkout(ctx, 6.4, 3.2, 0, red);
-  glowBars(ctx, -8, 8, [-2.6, 0.4, 3.0], 3.4);
   door(ctx, 8.9, 1.9, 'right', '#ffffff');
   const npcs = [spawnNpc(ctx, 71, -1.6, 0.6, 1.2, 'shop', SHOPPERS), spawnNpc(ctx, 72, 5.6, -3.1, Math.PI, 'shop', SHOPPERS)];
   ctx.dust([-8, 0.5, -4], [8, 3.2, 4], '#fff4e0', 40, 0.04, 0.3);
@@ -171,7 +169,7 @@ export function buildMarshalls(q: QualityLevel): BuiltSet {
   const blue = '#1f5fa8';
   room(ctx, {
     x0: -9, x1: 9, z0: -4.6, z1: 4.6, h: 3.6,
-    floor: floorMat(TX.speckle('#eef0f2', ['#1f5fa8', '#9aa6b2', '#c9d2dc', '#ffffff'], 4000, 3, 'terrazzo'), [4, 2], 0.3, 'marf'),
+    floor: floorMat(TX.speckle('#d6dbe1', ['#1f5fa8', '#8a96a2', '#b9c2cc', '#f4f6f8'], 4000, 3, 'terrazzo'), [4, 2], 0.3, 'marf'),
     wall: M.std('#fbfbfc', 0.85), trim: M.std(blue, 0.55),
     right: [[1.2, 2.6, 0, 2.4]],
   });
@@ -189,7 +187,6 @@ export function buildMarshalls(q: QualityLevel): BuiltSet {
   bench(ctx.root, -6.8, 2.6, Math.PI / 2, '#c9d2dc', 1.6);
   ctx.solidAt(-6.8, 2.6, 0.5, 1.6);
   checkout(ctx, 6.4, 3.2, 0, blue);
-  glowBars(ctx, -8, 8, [-2.6, 0.4, 3.0], 3.4);
   door(ctx, 8.9, 1.9, 'right', '#ffffff');
   const npcs = [spawnNpc(ctx, 81, -2.9, -0.8, 0.8, 'shop', SHOPPERS), spawnNpc(ctx, 82, 3.8, -3.2, Math.PI, 'shop', SHOPPERS)];
   ctx.dust([-8, 0.5, -4], [8, 3.2, 4], '#eaf2ff', 40, 0.04, 0.3);
@@ -225,7 +222,7 @@ export function buildMarshalls(q: QualityLevel): BuiltSet {
 /* =================== The Mall (Nike shoes, skincare, massage) =================== */
 export function buildMall(q: QualityLevel): BuiltSet {
   const ctx = new SetCtx(q);
-  const floor = floorMat(TX.tiles('#efe6d8', '#d6c8b2', 3, 0.04, 'mall'), [7, 3.5], 0.25, 'mallf');
+  const floor = floorMat(TX.tiles('#ddd0bd', '#bfae94', 3, 0.05, 'mall'), [7, 3.5], 0.3, 'mallf');
   room(ctx, { x0: -12, x1: 12, z0: -5.5, z1: 5, h: 6, floor, wall: M.std('#f4ece0', 0.85), trim: M.std('#c9a57a', 0.5), crown: true });
   // storefront bays
   const bays: [number, string, string, THREE.Texture, string][] = [
@@ -289,7 +286,7 @@ export function buildMall(q: QualityLevel): BuiltSet {
   bench(ctx.root, 6, 0.8, 0, '#b58a60', 2);
   ctx.solidAt(-6, 0.8, 2, 0.5);
   ctx.solidAt(6, 0.8, 2, 0.5);
-  for (const x of [-7, 0, 7]) lightShaft(ctx.dyn, x, 7.5, 2.5, 2.4, 9, '#fff1d6', 0.1, 0.35);
+  for (const x of [-7, 7]) lightShaft(ctx.dyn, x, 7.5, 2.5, 2.4, 9, '#fff1d6', 0.05, 0.35);
   const ctxDust = ctx.dust([-11, 0.5, -2], [11, 5.5, 4.5], '#fff1d6', 100, 0.05, 0.5);
   void ctxDust;
   const npcs = [spawnNpc(ctx, 91, -3, 3.4, 2.4, 'walk', SHOPPERS), spawnNpc(ctx, 92, 3.4, -1.2, 0.5, 'shop', SHOPPERS), spawnNpc(ctx, 93, -8.2, -3.3, 0, 'idle', SHOPPERS)];

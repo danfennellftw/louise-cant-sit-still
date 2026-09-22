@@ -157,7 +157,7 @@ export function ebike(p: THREE.Object3D, x: number, z: number, ry = 0, color = '
   sp(g, M.glow('#fff4d6', 2), 0.05, 0, 0.98, 0.66, { cast: false });
   let basketG: THREE.Group | null = null;
   if (basket) {
-    basketG = group(g, 0, 0.92, 0.75);
+    basketG = group(g, 0, 0.86, -0.78);
     bx(basketG, M.fabric('#b98a5a', '#fff4dc', 0.9), 0.42, 0.22, 0.32, 0, 0, 0, 0.04);
     bx(basketG, M.fabric('#f4efe6', '#fff', 0.9), 0.36, 0.04, 0.26, 0, 0.18, 0, 0.02);
   }

@@ -94,9 +94,9 @@ export function fridgeCase(ctx: SetCtx, x: number, z: number, len: number, ry = 
   const g = group(ctx.root, x, 0, z, ry);
   bx(g, M.gloss('#e9edf0', 0.3, 0.5), len, 2.1, 0.8, 0, 0, 0, 0.03);
   const face = new THREE.Mesh(G.plane(len - 0.1, 1.5), M.tex(TX.products(seed, ['#e8453c', '#fff', '#f2c14e', '#9ad0f5', '#c9e7c1', '#ff9ec7']), 0.4, 0, `fr${seed}`));
-  face.position.set(0, 1.0, 0.36);
+  face.position.set(0, 1.0, 0.405);
   g.add(face);
-  put(g, G.plane(len - 0.1, 1.5), M.glass('#e8f6ff', 0.25), 0, 1.0, 0.41, { cast: false });
+  put(g, G.plane(len - 0.1, 1.5), M.glass('#e8f6ff', 0.25), 0, 1.0, 0.43, { cast: false });
   put(g, G.box(len - 0.1, 0.05, 0.05, 0.01), M.glow(glow, 2), 0, 1.8, 0.38, { cast: false });
   bx(g, M.std('#2a3a4a', 0.6), len, 0.25, 0.05, 0, 1.85, 0.41, 0.01);
   ctx.solidAt(x, z, len, 0.85, ry);

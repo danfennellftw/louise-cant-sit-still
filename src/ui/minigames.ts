@@ -151,8 +151,11 @@ export class MiniGames {
         }
       });
       this.on(window, 'keyup', () => (keyHeld = false));
-      const loop = () => {
-        if (keyHeld) setK(k + 0.012);
+      let last = performance.now();
+      const loop = (now: number) => {
+        const dt = Math.min(0.1, (now - last) / 1000);
+        last = now;
+        if (keyHeld) setK(k + dt * 0.5);
         if (k < 1) raf = requestAnimationFrame(loop);
       };
       raf = requestAnimationFrame(loop);

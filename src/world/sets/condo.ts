@@ -42,9 +42,9 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
   tableLamp(ctx, ctx.root, -6.4, 0.6, -4.05, night);
   windowUnit(ctx, -11, -1.6, 2.2, 1.55, 0.9, TX.gardenBackdrop(night), { side: 'left', shade: '#6b6258', curtains: '#efe6d8', key: `bedwin${night}` });
   dresser(ctx, -10.45, 2.0, Math.PI / 2);
-  const bedTv = tv(ctx, ctx.root, -7.8, 0.65, 2.6, Math.PI, 1.3);
-  bx(ctx.root, M.std('#7a4e30', 0.5), 1.8, 0.62, 0.45, -7.8, 0, 2.65, 0.03);
-  ctx.solidAt(-7.8, 2.65, 1.8, 0.5);
+  const bedTv = tv(ctx, ctx.root, -4.14, 1.15, -1.9, -Math.PI / 2, 1.3);
+  bx(ctx.root, M.std('#7a4e30', 0.5), 0.4, 0.5, 1.5, -4.35, 0, -1.9, 0.03);
+  ctx.solidAt(-4.35, -1.9, 0.45, 1.5);
   rug(ctx.root, -7.8, -0.9, 3.2, 1.6, TX.rug('#e7e1d8', '#b9b1a6'), 0, 'bedrug');
   plant(ctx.root, -4.6, -3.9, 1.05, '#f1ebe0', 'snake');
   ctx.solidAt(-4.6, -3.9, 0.5, 0.5);
@@ -111,9 +111,9 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
     dan.facing = 0;
     dan.setState('lie');
   } else {
-    dan.root.position.set(2.2, 0, -1.3);
+    dan.root.position.set(2.0, 0, 0.35);
     dan.facing = -Math.PI / 2;
-    dan.setState('couch');
+    dan.setState('idle');
   }
 
   const hooks: Record<string, StopHooks> = {};
@@ -151,13 +151,13 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
       },
       done: () => {
         dan.setState('wave');
-        void tweens.wait(1.8).then(() => dan.setState('couch'));
+        void tweens.wait(1.8).then(() => dan.setState('idle'));
       },
       reset: () => foods.forEach((f) => f.scale.setScalar(0.001)),
     };
     hooks.dan = {
       start: () => dan.setState('wave'),
-      done: () => dan.setState('couch'),
+      done: () => dan.setState('idle'),
     };
     stops = [
       {
@@ -187,7 +187,7 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
         },
         intro: [{ who: 'louise', text: 'I organized these yesterday. They’ve had a whole night to become chaos.' }],
         outro: [{ who: 'narrator', text: 'Perfect. She will reorganize them again in three minutes. It’s a lifestyle.' }],
-        refill: 30, hearts: 3, color: '#7fd1b9', push: { dist: 4.6, height: 3 },
+        refill: 30, hearts: 3, color: '#7fd1b9', push: { dist: 4.4, height: 3.9, yaw: -0.3 },
       },
       {
         id: 'brownfood', label: 'Only brown food for Dan', verb: 'Cook', pos: [8.3, -3.2], stand: [8.3, -3.35], face: Math.PI, pose: 'work',
@@ -208,10 +208,10 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
           { who: 'dan', text: '…thanks.' },
           { who: 'louise', text: 'You’re welcome. I’m already putting on shoes.' },
         ],
-        refill: 35, hearts: 4, color: '#f2c46d', push: { dist: 4.8, height: 3.1 },
+        refill: 35, hearts: 4, color: '#f2c46d', push: { dist: 4.6, height: 3.9, yaw: 0.35 },
       },
       {
-        id: 'dan', label: 'Kiss Dan goodbye', verb: 'Say bye', pos: [1.1, -1.3], stand: [1.05, -1.3], face: Math.PI / 2, pose: 'wave', optional: true,
+        id: 'dan', label: 'Kiss Dan goodbye', verb: 'Say bye', pos: [1.1, 0.4], stand: [1.1, 0.4], face: Math.PI / 2, pose: 'wave', optional: true,
         mini: {
           type: 'dialogue', title: 'Quick goodbye',
           lines: [{ who: 'dan', text: 'Where are you off to?' }],

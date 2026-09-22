@@ -448,8 +448,8 @@ button {
 #coach {
   position: absolute;
   left: 50%;
-  top: 38%;
-  transform: translate(-50%, -50%);
+  bottom: calc(112px + var(--safe-b));
+  transform: translateX(-50%);
   max-width: min(86vw, 380px);
   padding: 12px 16px;
   border-radius: 16px;

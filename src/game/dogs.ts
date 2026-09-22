@@ -31,7 +31,7 @@ export class Dog {
   petted = false;
   telegraph = 0;
   constructor(readonly name: 'mochi' | 'leo', readonly display: string, readonly side: number) {
-    this.actor = new Actor(name, { sprite: `sprites/${name}.webp`, height: name === 'mochi' ? 0.52 : 0.5, dog: name });
+    this.actor = new Actor(name, { sprite: `sprites/${name}.webp`, height: name === 'mochi' ? 0.82 : 0.78, dog: name });
   }
   get pos() {
     return this.actor.root.position;

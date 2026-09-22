@@ -350,7 +350,7 @@ export class StopMarker {
   private k = 1;
   constructor(color: THREE.ColorRepresentation, radius = 0.9, private gemHeight = 2.1) {
     this.root.userData.dynamic = true;
-    this.ringMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+    this.ringMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, fog: false });
     this.discMat = new THREE.MeshBasicMaterial({
       color,
       map: TX.radial('rgba(255,255,255,0.9)', 'rgba(255,255,255,0)', 'disc'),
@@ -359,6 +359,7 @@ export class StopMarker {
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       toneMapped: false,
+      fog: false,
     });
     this.beamMat = new THREE.MeshBasicMaterial({
       color,
@@ -371,11 +372,11 @@ export class StopMarker {
       toneMapped: false,
     });
     this.gemMat = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: color, emissiveIntensity: 1.6, roughness: 0.25, metalness: 0.1 });
-    this.ring = put(this.root, G.ring(radius * 0.86, radius, 48), this.ringMat, 0, 0.03, 0, { rx: -Math.PI / 2, cast: false, receive: false });
-    this.ring2 = put(this.root, G.ring(radius * 0.96, radius * 1.02, 48), this.ringMat, 0, 0.03, 0, { rx: -Math.PI / 2, cast: false, receive: false });
-    this.disc = put(this.root, G.circle(radius * 1.4, 32), this.discMat, 0, 0.025, 0, { rx: -Math.PI / 2, cast: false, receive: false });
+    this.ring = put(this.root, G.ring(radius * 0.84, radius, 48), this.ringMat, 0, 0.06, 0, { rx: -Math.PI / 2, cast: false, receive: false });
+    this.ring2 = put(this.root, G.ring(radius * 0.96, radius * 1.02, 48), this.ringMat, 0, 0.06, 0, { rx: -Math.PI / 2, cast: false, receive: false });
+    this.disc = put(this.root, G.circle(radius * 1.4, 32), this.discMat, 0, 0.055, 0, { rx: -Math.PI / 2, cast: false, receive: false });
     this.beam = put(this.root, G.cyl(radius * 0.5, radius * 0.5, 2.6, 20, true), this.beamMat, 0, 1.3, 0, { rx: Math.PI, cast: false, receive: false });
-    this.gem = put(this.root, G.octa(0.16), this.gemMat, 0, gemHeight, 0, { s: [1, 1.45, 1], cast: false, receive: false });
+    this.gem = put(this.root, G.octa(0.22), this.gemMat, 0, gemHeight, 0, { s: [1, 1.45, 1], cast: false, receive: false });
     [this.ring, this.ring2, this.disc, this.beam].forEach((m) => (m.renderOrder = 2));
   }
 

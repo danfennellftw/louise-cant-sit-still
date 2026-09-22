@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SetCtx, floorMat, signBoard, bench, hill, plant } from '../kit';
+import { SetCtx, floorMat, signBoard, bench, hill } from '../kit';
 import { KITS, CAM_OUTDOOR, makeSet } from '../lighting';
 import { M } from '../../art/materials';
 import { TX } from '../../art/textures';
@@ -232,4 +232,3 @@ export function buildTrail(q: QualityLevel): BuiltSet {
   });
 }
 
-void plant;

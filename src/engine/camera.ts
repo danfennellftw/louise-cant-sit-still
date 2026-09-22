@@ -40,8 +40,9 @@ export class CameraRig {
   private desired(target: THREE.Vector3, outPos: THREE.Vector3, outLook: THREE.Vector3) {
     const s = this.spec;
     const p = this.push;
-    const dist = lerp(s.dist, this.pushSpec.dist, p);
-    const height = lerp(s.height, this.pushSpec.height, p);
+    const portrait = this.camera.aspect < 0.85 ? lerp(1.32, 1.12, p) : 1;
+    const dist = lerp(s.dist, this.pushSpec.dist, p) * portrait;
+    const height = lerp(s.height, this.pushSpec.height, p) * portrait;
     const yaw = s.yaw + this.pushSpec.yaw * p + this.orbit;
     outLook.copy(target);
     outLook.y = lerp(s.lookY, 1.0, p);
@@ -57,7 +58,7 @@ export class CameraRig {
   private clampTarget(v: THREE.Vector3) {
     const b = this.bounds;
     if (b && this.push < 0.5) {
-      const mx = Math.min(3, (b.x1 - b.x0) * 0.25);
+      const mx = Math.min(3, (b.x1 - b.x0) * 0.25) * (this.camera.aspect < 0.85 ? 0.3 : 1);
       const mz = Math.min(2, (b.z1 - b.z0) * 0.2);
       v.x = clamp(v.x, b.x0 + mx, b.x1 - mx);
       v.z = clamp(v.z, b.z0 + mz, b.z1 - mz * 0.5);

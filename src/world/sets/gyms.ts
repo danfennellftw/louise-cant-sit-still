@@ -219,7 +219,7 @@ export function buildCrunch(q: QualityLevel): BuiltSet {
   const teal = '#18c3c9';
   room(ctx, {
     x0: -9, x1: 9, z0: -4.6, z1: 4.6, h: 3.6,
-    floor: floorMat(TX.speckle('#ebe6de', [coral, teal, '#f2c46d', '#ffffff'], 2600, 2.2, 'crunch'), [4, 2], 0.7, 'crunchf'),
+    floor: floorMat(TX.speckle('#d9d1c5', [coral, teal, '#f2c46d', '#f7f3ee'], 2600, 2.2, 'crunch'), [4, 2], 0.7, 'crunchf'),
     wall: M.std('#fbfaf7', 0.8), trim: M.std(teal, 0.5),
     back: [[-7.4, -2.6, 0.7, 3.0], [-1.6, 3.2, 0.7, 3.0]],
     right: [[1.6, 2.8, 0, 2.3]],
@@ -289,7 +289,6 @@ export function buildEos(q: QualityLevel): BuiltSet {
   });
   neonStrip(ctx.root, 0, 4.2, -5.25, 24, blue);
   neonStrip(ctx.root, 0, 0.5, -5.25, 24, lime);
-  for (let i = 0; i < 5; i++) put(ctx.root, G.box(8, 0.06, 0.3, 0.02), M.glow('#e8f4ff', 1.6), -8 + i * 4, 4.6, -1 + (i % 2) * 2, { ry: Math.PI / 2, cast: false });
   signBoard(ctx.root, TX.sign('EOS FITNESS', { w: 640, h: 128, fg: '#dff2ff', glow: blue, sub: 'RANCHO SANTA MARGARITA', spacing: 4 }), -6.5, 3.0, -5.24, 5.6, 1.1, 0, 1.8, 'eos');
   turfLane(ctx.root, -4.5, 4.0, 14, 2.2, '#3b8a3e');
   const s = sled(ctx.dyn, -9.4, 4.0, lime);

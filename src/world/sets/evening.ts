@@ -49,7 +49,7 @@ export function buildGarage(q: QualityLevel): BuiltSet {
   bx(ctx.root, cedar, 2.8, 0.12, 0.14, sx, 2.18, sz + 1.12, 0.02);
   bx(ctx.root, M.metal('#2a2a2a', 0.4), 0.4, 0.55, 0.4, sx + 1.0, 0, sz + 0.5, 0.03);
   const coalsMat = new THREE.MeshStandardMaterial({ color: '#2a1a14', emissive: '#ff5a1a', emissiveIntensity: 0.2, roughness: 0.9 });
-  for (let i = 0; i < 9; i++) put(ctx.root.children.length ? ctx.dyn : ctx.root, G.dodeca(0.07), coalsMat, sx + 0.9 + (i % 3) * 0.09, 0.6, sz + 0.4 + Math.floor(i / 3) * 0.09, { ry: i });
+  for (let i = 0; i < 9; i++) put(ctx.dyn, G.dodeca(0.07), coalsMat, sx + 0.9 + (i % 3) * 0.09, 0.6, sz + 0.4 + Math.floor(i / 3) * 0.09, { ry: i });
   const glow = ctx.point(sx, 1.6, sz, '#ffa860', 0.6, 5, true);
   const panelG = bx(ctx.root, M.gloss('#1b1b1f', 0.3, 0.6), 0.3, 0.4, 0.06, sx + 1.6, 1.2, sz + 1.0, 0.02);
   void panelG;

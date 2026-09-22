@@ -76,7 +76,7 @@ export class Renderer {
       if (!this.composer) {
         this.composer = new EffectComposer(this.gl);
         this.composer.addPass(new RenderPass(this.scene, this.camera));
-        this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.32, 0.55, 0.88);
+        this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.3, 0.45, 2.4);
         this.composer.addPass(this.bloom);
         this.composer.addPass(new OutputPass());
       }

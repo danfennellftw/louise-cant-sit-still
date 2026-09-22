@@ -10,6 +10,7 @@ import { LOUISE_LOOK } from '../art/characters/human';
 import { preloadSprites } from '../art/characters/sprite';
 import { Confetti, StopMarker, TapMarker } from '../art/fx';
 import { G } from '../art/geo';
+import { loadOptionalGlb } from '../engine/assets';
 import { WIND } from '../art/materials';
 import { ebike } from '../art/props/outdoor';
 import { UI } from '../ui/ui';
@@ -189,6 +190,19 @@ export class Game {
     await this.pickNext();
   }
 
+  /** Dev helper: jump straight into a set (window.__game.debugEnter('trail')). */
+  debugEnter(id: SetId) {
+    this.audio.unlock();
+    this.ui.clearScreens();
+    void this.enterSet(id, true);
+  }
+
+  /** Dev helper: open a stop in the current set directly. */
+  debugStop(id: string) {
+    const s = this.set?.stops.find((x) => x.id === id);
+    if (s) void this.runStop(s);
+  }
+
   /* =================== set lifecycle =================== */
   private unloadSet() {
     if (!this.set) return;
@@ -251,6 +265,36 @@ export class Game {
     this.ui.setChapter(SETS[id].time, `${SETS[id].title} · ${SETS[id].place}`);
     this.refreshObjectives();
     this.cam.snap(this.louise.root.position);
+    void this.tryEnvironmentOverride(id, set);
+  }
+
+  /**
+   * Optional art drop-in: `public/environments/<setId>.glb` replaces the set's baked static
+   * meshes while stops, NPCs, lights and colliders keep working. Meshes named `collider*`
+   * inside the GLB become extra invisible colliders.
+   */
+  private async tryEnvironmentOverride(id: SetId, set: BuiltSet) {
+    const gltf = await loadOptionalGlb(`environments/${id}.glb`);
+    if (!gltf || this.set !== set) return;
+    const scene = gltf.scene;
+    scene.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      if (/^collider/i.test(m.name)) {
+        box.setFromObject(m);
+        set.colliders.push({ x0: box.min.x, z0: box.min.z, x1: box.max.x, z1: box.max.z });
+        m.visible = false;
+      } else {
+        m.castShadow = true;
+        m.receiveShadow = true;
+      }
+    });
+    set.root.children.forEach((c) => {
+      if (c.userData.baked) c.visible = false;
+    });
+    set.root.add(scene);
   }
 
   private async enterSet(id: SetId, fadeIn = true) {
@@ -297,6 +341,7 @@ export class Game {
     this.phase = 'transition';
     this.ui.hidePrompt();
     this.ui.coach(null);
+    this.hideGuides();
     this.audio.whoosh();
     const p = this.louise.root.position;
     this.cam.cinePos.set(p.x, 9, p.z + 9);
@@ -380,6 +425,7 @@ export class Game {
     this.tapTarget = null;
     this.ui.hidePrompt();
     this.ui.coach(null);
+    this.hideGuides();
     if (this.coachStep === 2) this.coachStep = 3;
     const hooks = set.hooks[stop.id] ?? {};
     const st = stop.stand ?? stop.pos;
@@ -457,6 +503,11 @@ export class Game {
       this.ui.coach('Her <b>Restless meter</b> drains fast when she stands still. Keep moving — finishing stops refills it!', 'meter');
       setTimeout(() => this.coachStep === 4 && (this.ui.coach(null), (this.coachStep = 5)), 5200);
     }
+  }
+
+  private hideGuides() {
+    this.ui.edgeArrow(0, 0, 0, false);
+    this.breadcrumbs.forEach((b) => ((b.material as THREE.MeshBasicMaterial).opacity = 0));
   }
 
   private requiredLeft() {
@@ -555,6 +606,7 @@ export class Game {
   /* =================== fail / pause =================== */
   private doFail() {
     this.phase = 'fail';
+    this.hideGuides();
     this.save.sits++;
     writeSave(this.save);
     this.ui.hidePrompt();
