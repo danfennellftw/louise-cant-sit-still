@@ -47,7 +47,16 @@ export class MiniGames {
     this.stage.innerHTML = '';
   }
 
+  private runId = 0;
+
+  /** Tear down the running mini without resolving it (its stop is being abandoned). */
+  abort() {
+    this.runId++;
+    this.finish();
+  }
+
   async run(spec: MiniSpec, progress: Progress): Promise<MiniResult> {
+    const id = ++this.runId;
     let r: MiniResult;
     switch (spec.type) {
       case 'pull':
@@ -78,6 +87,7 @@ export class MiniGames {
       default:
         r = await this.dialogue(spec, progress);
     }
+    if (id !== this.runId) return new Promise<MiniResult>(() => {});
     this.finish();
     return r;
   }

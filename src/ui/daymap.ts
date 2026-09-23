@@ -6,7 +6,7 @@ import type { Audio } from '../engine/audio';
  * Stylized south-OC day map. Every stop is pickable (including finished ones); the story's
  * suggested next stops just glow. Resolves with the picked stop, or null when closed.
  */
-export function showDayMap(root: HTMLElement, audio: Audio, done: Set<SetId>, current: SetId | null, closable: boolean): Promise<SetId | null> {
+export function showDayMap(root: HTMLElement, audio: Audio, done: Set<SetId>, current: SetId | null, closable: boolean, demo = false): Promise<SetId | null> {
   const avail = new Set(suggested(done));
   const nextAct = avail.size ? actOf([...avail][0]) : null;
   const node = (id: SetId) => {
@@ -59,9 +59,9 @@ export function showDayMap(root: HTMLElement, audio: Audio, done: Set<SetId>, cu
   }).join('');
   const el = document.createElement('div');
   el.className = 'map-screen';
-  el.innerHTML = `<h2>Louise’s Day</h2><div class="sub">Tap any stop to go there. ${avail.size ? 'Glowing = next in the story.' : 'Every stop done!'}</div>
+  el.innerHTML = `<h2>${demo ? 'Every stop <span class="dt-badge">Demo</span>' : 'Louise’s Day'}</h2><div class="sub">Tap any stop or chapter chip to go there${demo ? ' — nothing is locked' : ''}. ${avail.size ? 'Glowing = next in the story.' : 'Every stop done!'}</div>
     <div class="map-wrap">${svg}</div><div class="acts">${acts}</div>
-    ${closable ? '<button class="cta secondary map-close">Back to the game</button>' : ''}`;
+    ${closable ? `<button class="cta secondary map-close">${demo ? 'Back' : 'Back to the game'}</button>` : ''}`;
   root.appendChild(el);
   void current;
   return new Promise((resolve) => {

@@ -63,6 +63,12 @@ Vercel: framework preset **Vite**, build `npm run build`, output `dist`. `vercel
 - **Day structure:** five acts — Morning condo → Fitness circuit (Grit Cycle Dana Point, Shredz Ladera Ranch, Crunch San Clemente, EOS Fitness Rancho Santa Margarita) → Errands (grocery, TJ Maxx, Marshall's, mall with Nike, skincare and massage) → Social (coffee plaza AI meetup + Nina call, e-bike trail RMV → San Juan Capistrano → Dana Point) → Wind-down (garage sauna between Louise's gray Model Y and Dan's blue Model 3, YouTube in bed with the dogs, dogs downstairs).
   - An act stinger plays between acts.
   - A day-map navigator lets you jump to any stop at any time (including later chapters and finished stops, which reset for a replay). The story order is only a suggestion: the next stops glow. The HUD map button travels too.
+- **Detour the day (demo).** A gold **Detour · demo** pill sits in the HUD and works at any moment: mid-stop, mid-minigame, during dialogue, a ringing call or the fail card. The same panel is on the title screen and in the pause menu. It offers:
+  - chapter jumps: Rise & Organize, Fitness, Errands, Social, Wind-Down, Night in bed
+  - quick scenes: condo morning, Plan the day (desk), Mochi's accidents, Mom's call, Grit, TJ Maxx + Nina's call, coffee meetup, e-bike trail, garage sauna with the cars, YouTube in bed, and the dogs-downstairs finale
+  - the full day map (every stop)
+
+  Jumping cleanly abandons whatever was in progress: minigames, dialogue, call cards and fades are cleared before the new set loads. Walking into an exit with stops left opens the map instead of blocking you.
 - **Onboarding:** from the title screen you're playing in under 15 seconds. A coach walks you through moving and the first stop, then explains the meter. If you stall, soft breadcrumbs point to the next stop. When the next stop is off-screen, an edge arrow points to it.
 - Progress auto-saves to `localStorage` ("Continue the day" on the title screen).
 

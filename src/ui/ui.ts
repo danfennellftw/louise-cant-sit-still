@@ -63,8 +63,21 @@ export class UI {
   }
 
   /* ---------- HUD ---------- */
+  private detourBtn = $('btn-detour');
   showHud(v: boolean) {
     this.hud.classList.toggle('hidden', !v);
+    this.detourBtn.classList.toggle('hidden', !v);
+  }
+
+  /** Pulse the demo Detour pill (e.g. when she tries to leave with stops left). */
+  nudgeDetour() {
+    this.detourBtn.classList.remove('nudge');
+    void this.detourBtn.offsetWidth;
+    this.detourBtn.classList.add('nudge');
+  }
+
+  hideDetourPill(v: boolean) {
+    this.detourBtn.style.visibility = v ? 'hidden' : '';
   }
 
   setMeter(pct: number, level: 0 | 1 | 2) {
@@ -203,11 +216,27 @@ export class UI {
   }
 
   /* ---------- dialog ---------- */
+  private dialogCleanup: (() => void) | null = null;
+  private dialogRun = 0;
+
   async dialog(lines: Line[]) {
     if (!lines.length) return;
+    const run = ++this.dialogRun;
     this.dialogOpen = true;
     this.hidePrompt();
-    for (const line of lines) await this.showLine(line);
+    for (const line of lines) {
+      await this.showLine(line);
+      if (run !== this.dialogRun) return new Promise<void>(() => {});
+    }
+    this.dialogEl.classList.add('hidden');
+    this.dialogOpen = false;
+  }
+
+  /** Drop any open dialog without resolving it (the flow that opened it is being abandoned). */
+  abortDialog() {
+    this.dialogRun++;
+    this.dialogCleanup?.();
+    this.dialogCleanup = null;
     this.dialogEl.classList.add('hidden');
     this.dialogOpen = false;
   }
@@ -246,10 +275,14 @@ export class UI {
         if (['e', ' ', 'enter'].includes(e.key.toLowerCase())) advance(e);
       };
       const cleanup = () => {
+        window.clearInterval(iv);
+        clearTimeout(arm);
         this.dialogEl.removeEventListener('pointerdown', advance);
         window.removeEventListener('keydown', key);
+        this.dialogCleanup = null;
       };
-      setTimeout(() => {
+      this.dialogCleanup = cleanup;
+      const arm = setTimeout(() => {
         this.dialogEl.addEventListener('pointerdown', advance);
         window.addEventListener('keydown', key);
       }, 120);
@@ -273,11 +306,12 @@ export class UI {
       <div class="call-keys">Enter answer · S speaker · X decline</div>`;
     document.body.appendChild(el);
     const ring = window.setInterval(() => this.audio.ring(), 2400);
-    return new Promise<'answer' | 'speaker' | 'decline' | 'missed'>((resolve) => {
+    return new Promise<'answer' | 'speaker' | 'decline' | 'missed' | 'cleared'>((resolve) => {
       let done = false;
-      const finish = (a: 'answer' | 'speaker' | 'decline' | 'missed') => {
+      const finish = (a: 'answer' | 'speaker' | 'decline' | 'missed' | 'cleared') => {
         if (done) return;
         done = true;
+        this.callClears.delete(clear);
         window.clearInterval(ring);
         window.clearTimeout(timeout);
         window.removeEventListener('keydown', key, true);
@@ -285,6 +319,8 @@ export class UI {
         setTimeout(() => el.remove(), 300);
         resolve(a);
       };
+      const clear = () => finish('cleared');
+      this.callClears.add(clear);
       const timeout = window.setTimeout(() => finish('missed'), ms);
       const key = (e: KeyboardEvent) => {
         const k = e.key.toLowerCase();
@@ -306,8 +342,19 @@ export class UI {
     });
   }
 
-  /** Speakerphone: captions tick along at the top while she keeps moving. */
+  private callClears = new Set<() => void>();
+  private captionRun = 0;
+
+  /** Hang up everything phone-shaped: ringing cards and speaker captions. */
+  clearCalls() {
+    [...this.callClears].forEach((f) => f());
+    this.captionRun++;
+    document.querySelectorAll('.call-caption').forEach((e) => e.remove());
+  }
+
+  /** Speakerphone: captions tick along at the top while she keeps moving. Resolves false if hung up. */
   async speakerCall(name: string, color: string, lines: Line[]) {
+    const run = ++this.captionRun;
     const el = document.createElement('div');
     el.className = 'call-caption';
     el.innerHTML = `<div class="cc-head"><span class="cc-dot" style="background:${color}"></span>On speaker · ${esc(name)}<small>00:00</small></div><div class="cc-line"></div>`;
@@ -326,10 +373,16 @@ export class UI {
       line.classList.add('in');
       this.audio.pop();
       await new Promise((r) => setTimeout(r, 1500 + l.text.length * 38));
+      if (run !== this.captionRun) {
+        window.clearInterval(iv);
+        el.remove();
+        return false;
+      }
     }
     window.clearInterval(iv);
     el.classList.add('out');
     setTimeout(() => el.remove(), 350);
+    return true;
   }
 
   /* ---------- transitions ---------- */
@@ -381,7 +434,7 @@ export class UI {
   }
 
   /* ---------- screens ---------- */
-  title(opts: { hasSave: boolean; onPlay: () => void; onContinue: () => void; onSettings: () => void }) {
+  title(opts: { hasSave: boolean; onPlay: () => void; onContinue: () => void; onSettings: () => void; onDetour: () => void }) {
     const l2 = "can't sit still".split('').map((c, i) => `<span style="animation-delay:${i * 0.07}s">${c === ' ' ? '&nbsp;' : esc(c)}</span>`).join('');
     const cast = (['louise', 'dan', 'mochi', 'leo'] as Speaker[])
       .map((w, i) => `<figure style="animation-delay:${0.3 + i * 0.1}s">${portraitHtml(w, '')}<figcaption>${NAMES[w]}</figcaption></figure>`)
@@ -396,12 +449,14 @@ export class UI {
         <div class="cast">${cast}</div>
         <button class="cta" id="t-play">${opts.hasSave ? 'Continue the day' : 'Play'}</button>
         ${opts.hasSave ? '<button class="cta secondary" id="t-new">Start a fresh day</button>' : ''}
+        <button class="cta secondary t-detour" id="t-detour">Detour the day <span class="dt-badge">Demo</span></button>
         <div class="title-foot"><button id="t-settings">Settings</button><span>WASD / drag · E / tap</span></div>
       </div>`;
     $('t-play').onclick = () => (opts.hasSave ? opts.onContinue() : opts.onPlay());
     const n = document.getElementById('t-new');
     if (n) n.onclick = () => opts.onPlay();
     $('t-settings').onclick = () => opts.onSettings();
+    $('t-detour').onclick = () => opts.onDetour();
   }
 
   chapterCard(kicker: string, title: string, sub: string, ms = 2600) {
@@ -499,6 +554,7 @@ export class UI {
     onClose: () => void;
     onRestart?: () => void;
     onMap?: () => void;
+    onDetour?: () => void;
   }) {
     const qs: QualitySetting[] = ['auto', 'low', 'medium', 'high'];
     const el = document.createElement('div');
@@ -509,6 +565,7 @@ export class UI {
         <div class="row"><div class="seg" id="s-q">${qs.map((q) => `<button data-q="${q}" class="${q === opts.quality ? 'on' : ''}">${q[0].toUpperCase() + q.slice(1)}</button>`).join('')}</div></div>
         <div class="row"><div class="seg"><button id="s-mute" class="on">${opts.muted ? 'Sound: off' : 'Sound: on'}</button></div></div>
         <button class="cta" id="s-close">${opts.inGame ? 'Resume' : 'Done'}</button>
+        ${opts.onDetour ? '<button class="cta secondary" id="s-detour" style="width:100%;color:var(--plum);box-shadow:inset 0 0 0 2px #e6c9b8">Detour the day <span class="dt-badge">Demo</span></button>' : ''}
         ${opts.onMap ? '<button class="cta secondary" id="s-map" style="width:100%;color:var(--plum);box-shadow:inset 0 0 0 2px #e6c9b8">Day map</button>' : ''}
         ${opts.onRestart ? '<button class="cta secondary" id="s-restart" style="width:100%;color:var(--plum);box-shadow:inset 0 0 0 2px #e6c9b8">Restart this stop</button>' : ''}
       </div>`;
@@ -531,6 +588,11 @@ export class UI {
     if (r && opts.onRestart) r.onclick = () => {
       el.remove();
       opts.onRestart!();
+    };
+    const dt = el.querySelector('#s-detour') as HTMLElement | null;
+    if (dt && opts.onDetour) dt.onclick = () => {
+      el.remove();
+      opts.onDetour!();
     };
     const mp = el.querySelector('#s-map') as HTMLElement | null;
     if (mp && opts.onMap) mp.onclick = () => {

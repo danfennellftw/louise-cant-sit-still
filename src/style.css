@@ -254,10 +254,18 @@ button {
   font-weight: 600;
   color: var(--plum);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  max-width: calc(100% - 136px);
 }
 .chapter-chip .time {
   color: var(--coral);
   font-weight: 700;
+  white-space: nowrap;
+}
+.chapter-chip .place {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .objective {
   margin-top: 6px;
@@ -1926,4 +1934,179 @@ button {
   font-size: 12px;
   font-style: italic;
   opacity: 0.7;
+}
+
+/* ---------- demo: detour the day ---------- */
+.dt-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px 1px;
+  border-radius: 999px;
+  vertical-align: middle;
+  font: 700 10px/1.4 var(--ui, inherit);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2b1d2e;
+  background: #f2c46d;
+}
+.detour-pill {
+  position: fixed;
+  right: 12px;
+  top: calc(62px + var(--safe-t));
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 12px 0 9px;
+  border-radius: 999px;
+  color: #fff6ec;
+  font-weight: 700;
+  font-size: 13.5px;
+  background: rgba(43, 29, 46, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), inset 0 0 0 1.5px rgba(242, 196, 109, 0.7);
+  transition: transform 0.12s;
+}
+.detour-pill.hidden {
+  display: none;
+}
+.detour-pill svg {
+  width: 17px;
+  height: 17px;
+  fill: #f2c46d;
+}
+.detour-pill small {
+  margin-left: 2px;
+  padding: 1px 6px 0;
+  border-radius: 999px;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2b1d2e;
+  background: #f2c46d;
+}
+.detour-pill:active {
+  transform: scale(0.94);
+}
+.detour-pill.nudge {
+  animation: pillnudge 0.9s 2;
+}
+@keyframes pillnudge {
+  50% {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 8px rgba(242, 196, 109, 0.35);
+  }
+}
+#screens > .detour-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  padding: calc(14px + var(--safe-t)) 12px calc(14px + var(--safe-b));
+  overflow-y: auto;
+  background: rgba(30, 20, 34, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: auto;
+  animation: fadein 0.25s;
+}
+.dt-card {
+  width: min(100%, 460px);
+  padding: 18px 16px 14px;
+  border-radius: 26px;
+  color: var(--plum);
+  background: #fff6ec;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+.dt-head {
+  display: flex;
+  align-items: center;
+}
+.dt-head h2 {
+  margin: 0;
+  font-size: 26px;
+}
+.dt-sub {
+  margin: 6px 0 10px;
+  font-size: 13px;
+  opacity: 0.75;
+}
+.dt-label {
+  margin: 10px 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.dt-chaps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dt-chap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px 7px 7px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--plum);
+  background: #f3e3d2;
+}
+.dt-chap b {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  color: #fff6ec;
+  background: var(--plum);
+}
+.dt-scenes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.dt-scene {
+  padding: 9px 10px;
+  border-radius: 14px;
+  text-align: left;
+  color: var(--plum);
+  background: #fff;
+  box-shadow: inset 0 0 0 1.5px #ecd7c3;
+}
+.dt-scene b {
+  display: block;
+  font-size: 14px;
+}
+.dt-scene small {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  opacity: 0.65;
+}
+.dt-scene.here {
+  box-shadow: inset 0 0 0 2px #ff9e7a;
+}
+.dt-chap:active,
+.dt-scene:active {
+  transform: scale(0.96);
+}
+.dt-card .cta {
+  width: 100%;
+  margin-top: 12px;
+}
+.dt-card .dt-close {
+  margin-top: 8px;
+  color: var(--plum);
+  box-shadow: inset 0 0 0 2px #e6c9b8;
+}
+.title-screen .t-detour {
+  color: #fff6ec;
 }

@@ -16,6 +16,7 @@ import { ebike } from '../art/props/outdoor';
 import { UI } from '../ui/ui';
 import { MiniGames } from '../ui/minigames';
 import { showDayMap } from '../ui/daymap';
+import { showDetour, type DetourTarget } from '../ui/demo';
 import { DogPack, type Dog } from './dogs';
 import { resolveCircle, clampBounds, separate } from './physics';
 import { puddleMat } from '../world/sets/condoDressing';
@@ -86,7 +87,6 @@ export class Game {
   private last = 0;
   private lastProgress = 0;
   private heartbeatT = 0;
-  private exitNagT = 0;
   private gatesHit = new Set<number>();
   private coachStep = 0;
   private movedDist = 0;
@@ -151,7 +151,8 @@ export class Game {
     const muteBtn = document.getElementById('btn-mute')!;
     muteBtn.classList.toggle('muted', this.audio.muted);
     muteBtn.onclick = () => muteBtn.classList.toggle('muted', this.audio.toggleMute());
-    document.getElementById('btn-map')!.onclick = () => this.peekMap();
+    document.getElementById('btn-map')!.onclick = () => void this.openDetour(true);
+    document.getElementById('btn-detour')!.onclick = () => void this.openDetour();
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.phase === 'play') this.togglePause();
     });
@@ -197,6 +198,7 @@ export class Game {
       onPlay: () => void this.startNew(),
       onContinue: () => void this.continueGame(),
       onSettings: () => this.openSettings(false),
+      onDetour: () => void this.titleDetour(),
     });
   }
 
@@ -286,7 +288,8 @@ export class Game {
       this.exitMarker.state = 'hidden';
       this.r.scene.add(this.exitMarker.root);
     }
-    const sp = set.spawn;
+    const sp = this.spawnAt ? { ...set.spawn, x: this.spawnAt[0], z: this.spawnAt[1] } : set.spawn;
+    this.spawnAt = null;
     this.louise.root.position.set(sp.x, 0, sp.z);
     this.louise.facing = sp.face;
     this.louise.setState(set.vehicle ? 'ride' : 'idle');
@@ -343,16 +346,18 @@ export class Game {
     set.root.add(scene);
   }
 
-  private async enterSet(id: SetId, fadeIn = true) {
+  private async enterSet(id: SetId, fadeIn = true): Promise<boolean> {
+    const ep = ++this.epoch;
     this.phase = 'intro';
     this.ui.clearRecover();
     if (fadeIn || (this.set?.root && this.setId !== id)) await this.ui.fade(true, true);
+    if (ep !== this.epoch) return false;
     try {
       this.loadSetNow(id);
     } catch (err) {
       console.error(`[game] failed to build set "${id}"`, err);
       this.setFailed(id);
-      return;
+      return false;
     }
     this.meter = Math.max(this.meter, 85);
     this.still = 0;
@@ -371,10 +376,12 @@ export class Game {
     this.ui.coach(null);
     this.ui.showHud(true);
     await this.ui.fade(false);
+    if (ep !== this.epoch) return false;
     const meta = SETS[id];
     void this.ui.chapterCard(`${meta.time} · ${meta.place}`, meta.title, actOf(id).title, 2400);
     this.audio.whoosh();
     await tweens.to(1.7, (k) => (this.cam.cine = 1 - k), easeInOutCubic);
+    if (ep !== this.epoch) return false;
     this.cam.cine = 0;
     this.phase = 'play';
     this.lastProgress = this.t;
@@ -384,6 +391,7 @@ export class Game {
       this.ui.coach('Herd <b>Mochi</b> and <b>Leo</b> to their glowing beds — walk <b>behind</b> them to nudge them along.');
       setTimeout(() => this.ui.coach(null), 5000);
     }
+    return true;
   }
 
   /** A set failed to build: offer a lighter retry, the map, or a reload — never a blank screen. */
@@ -471,22 +479,98 @@ export class Game {
     await this.enterSet(next, true);
   }
 
-  private async peekMap() {
-    if (this.phase !== 'play') return;
+  /* =================== demo detours: jump anywhere, from any state =================== */
+  /** Bumped whenever a set loads; async stop / call / fail flows bail when it changes under them. */
+  private epoch = 0;
+  private detourOpen = false;
+  private spawnAt: [number, number] | null = null;
+
+  /** Detour panel (or straight to the full day map) → a target, or null when closed. */
+  private async pickDetour(closeLabel: string, startWithMap = false): Promise<DetourTarget | null> {
+    const current = this.phase === 'title' ? null : this.setId;
+    let map = startWithMap;
+    for (;;) {
+      if (!map) {
+        const r = await showDetour(this.ui.screens, this.audio, { current, closeLabel });
+        if (r !== 'map') return r;
+      }
+      const id = await showDayMap(this.ui.screens, this.audio, new Set(this.save.done), current, true, true);
+      if (id) return { set: id };
+      if (startWithMap) return null;
+      map = false;
+    }
+  }
+
+  private async openDetour(startWithMap = false) {
+    if (this.detourOpen || this.phase === 'boot' || this.phase === 'title' || this.phase === 'transition') return;
+    this.detourOpen = true;
+    const prev = this.phase;
     this.phase = 'paused';
-    this.pausedFrom = 'play';
-    const next = await showDayMap(this.ui.screens, this.audio, new Set(this.save.done), this.setId, true);
-    if (!next || next === this.setId) {
-      this.phase = 'play';
+    this.ui.hideDetourPill(true);
+    const pick = await this.pickDetour(prev === 'stop' ? 'Back to the stop' : 'Back to the game', startWithMap);
+    this.ui.hideDetourPill(false);
+    this.detourOpen = false;
+    if (!pick) {
+      if (this.phase === 'paused') this.phase = prev;
       return;
     }
-    this.phase = 'transition';
-    this.ui.hidePrompt();
+    await this.detourTo(pick);
+  }
+
+  private async titleDetour() {
+    if (this.detourOpen) return;
+    this.audio.unlock();
+    this.audio.click();
+    this.detourOpen = true;
+    this.save = loadSave() ?? freshSave();
+    const pick = await this.pickDetour('Back');
+    this.detourOpen = false;
+    if (!pick) return;
+    this.save.tutorial = true;
+    writeSave(this.save);
+    await this.detourTo(pick);
+  }
+
+  /** Abandon whatever is in flight (stop, mini, dialog, call, fail card) and land cleanly on the target. */
+  private async detourTo(t: DetourTarget) {
+    this.epoch++;
+    this.minis.abort();
+    this.ui.abortDialog();
+    this.ui.clearCalls();
+    this.ui.clearRecover();
+    this.ui.clearScreens();
     this.ui.coach(null);
+    this.ui.hidePrompt();
     this.hideGuides();
+    this.pendingCall = null;
+    this.callBusy = false;
+    this.autoTarget = null;
+    this.autoResolve = null;
+    this.pendingStop = null;
+    this.cam.push = 0;
+    this.cam.focus = null;
+    this.cam.focusWeight = 0;
+    this.hitStop = 0;
+    this.louise.root.position.y = 0;
+    this.phase = 'transition';
     this.ui.showHud(false);
-    await this.ui.fade(true);
-    await this.travelTo(next);
+    if (this.save.done.includes(t.set)) this.save.stops[t.set] = [];
+    if (t.stop) this.save.stops[t.set] = (this.save.stops[t.set] ?? []).filter((x) => x !== t.stop);
+    writeSave(this.save);
+    this.spawnAt = t.at ?? null;
+    const ok = await this.enterSet(t.set, true);
+    if (!ok || !this.set || this.setId !== t.set) return;
+    if (t.call) {
+      this.save.calls = { ...(this.save.calls ?? {}), [t.call]: false };
+      this.pendingCall = { who: t.call, delay: 1.2, attempt: 1 };
+    }
+    const stop = t.stop ? this.set.stops.find((x) => x.id === t.stop) : undefined;
+    if (stop && (this.phase as Phase) === 'play') {
+      const st = stop.stand ?? stop.pos;
+      this.louise.root.position.set(st[0] + 0.9, 0, st[1] + 0.9);
+      this.cam.snap(this.louise.root.position);
+      void this.runStop(stop);
+    }
   }
 
   private finale() {
@@ -533,6 +617,7 @@ export class Game {
   private async runStop(stop: StopDef) {
     if (this.phase !== 'play' || !this.set) return;
     const set = this.set;
+    const ep = this.epoch;
     this.phase = 'stop';
     this.pendingStop = null;
     this.tapTarget = null;
@@ -544,6 +629,7 @@ export class Game {
     const st = stop.stand ?? stop.pos;
     const stand = new THREE.Vector3(st[0], 0, st[1]);
     if (!set.vehicle) await this.walkTo(stand);
+    if (ep !== this.epoch) return;
     this.vel.set(0, 0, 0);
     const face = stop.face ?? this.louise.facing;
     void tweens.to(0.25, (k) => (this.louise.facing = dampAngle(this.louise.facing, face, 30 * k, 0.05)));
@@ -554,17 +640,20 @@ export class Game {
     this.markers.get(stop.id)!.state = 'hidden';
     this.ui.placeLabel(`stop-${stop.id}`, 0, 0, false);
     if (stop.intro) await this.ui.dialog(stop.intro);
+    if (ep !== this.epoch) return;
     const root = this.louise.root;
     const before = root.position.clone();
     if (stop.poseAt) {
       const to = new THREE.Vector3(...stop.poseAt);
       await tweens.to(0.35, (k) => root.position.lerpVectors(before, to, k), easeOutBack);
+      if (ep !== this.epoch) return;
     }
     this.louise.setState(stop.pose);
     this.louise.facing = face;
     this.dogs.toSpots(stop.dogSpots);
     if (!stop.dogSpots && stop.mini.type !== 'dialogue' && stop.mini.type !== 'phone') this.dogs.stare(root.position);
     const res = await this.minis.run(stop.mini, (k) => hooks.progress?.(k));
+    if (ep !== this.epoch) return;
     hooks.done?.();
 
     // juice: hit-stop, squash, confetti, chime, meter surge, hearts
@@ -584,11 +673,15 @@ export class Game {
     this.dogs.celebrate();
     this.louise.setState(set.vehicle ? 'ride' : 'cheer');
     await sleep(stop.poseAt ? 500 : 800);
+    if (ep !== this.epoch) return;
     if (res.lines.length) await this.ui.dialog(res.lines);
+    if (ep !== this.epoch) return;
     if (stop.outro) await this.ui.dialog(stop.outro);
+    if (ep !== this.epoch) return;
     if (stop.poseAt) {
       const from = root.position.clone();
       await tweens.to(0.3, (k) => root.position.lerpVectors(from, before, k), easeInOutCubic);
+      if (ep !== this.epoch) return;
     }
     root.position.y = 0;
     this.louise.setState(set.vehicle ? 'ride' : 'idle');
@@ -797,9 +890,11 @@ export class Game {
 
   private async ringCall(who: CallerId, attempt: number) {
     this.callBusy = true;
+    const ep = this.epoch;
     const c = CALLS[who];
     haptic([180, 90, 180]);
     const action = await this.ui.incomingCall({ name: c.name, letter: c.letter, color: c.color, attempt });
+    if (action === 'cleared' || ep !== this.epoch) return;
     const where = SETS[this.setId].title;
     try {
       if (action === 'answer' && this.phase === 'play') await this.answerCall(who, where);
@@ -812,6 +907,7 @@ export class Game {
 
   private async answerCall(who: CallerId, where: string) {
     const c = CALLS[who];
+    const ep = this.epoch;
     this.phase = 'stop';
     this.ui.hidePrompt();
     this.ui.coach(null);
@@ -827,11 +923,13 @@ export class Game {
     void tweens.to(0.6, (k) => (this.cam.push = k), easeInOutCubic);
     this.dogs.stare(at);
     const res = await this.minis.run({ type: 'phone', title: c.name, caller: { letter: c.letter, color: c.color }, lines: c.answer(where), choices: c.choices }, () => {});
+    if (ep !== this.epoch) return;
     this.audio.chime();
     this.confetti.burst(at.clone().setY(1.5), 30, 3);
     this.addHearts(2 + res.hearts, at.clone().setY(1.5));
     if (who === 'mom') {
       await this.ui.dialog([{ who: 'louise', text: 'Nothing nothing. Classic Ma. …Love her so much.' }]);
+      if (ep !== this.epoch) return;
       this.meterNudge(-8, 'stood still for Mom');
     } else {
       this.meterNudge(-5, 'stood still for Nina');
@@ -849,14 +947,16 @@ export class Game {
   private async speakerCall(who: CallerId, where: string) {
     const c = CALLS[who];
     this.ui.toast(`${c.name} is on speaker — keep moving!`, 'good');
-    await this.ui.speakerCall(c.name, c.color, c.speaker(where));
+    const ep = this.epoch;
+    const ok = await this.ui.speakerCall(c.name, c.color, c.speaker(where));
+    if (!ok || ep !== this.epoch) return;
     this.meterNudge(10, 'walk-and-talk');
     this.addHearts(2, this.louise.root.position.clone().setY(1.6));
     this.ui.toast(who === 'mom' ? 'Talked to Mom without stopping. She never noticed. (She noticed.)' : 'Walk-and-talk with Nina: complete.', 'good');
     this.markCall(who);
   }
 
-  private missedCall(who: CallerId, attempt: number, action: 'decline' | 'missed' | 'answer' | 'speaker') {
+  private missedCall(who: CallerId, attempt: number, action: 'decline' | 'missed') {
     const c = CALLS[who];
     if (who === 'mom' && attempt < 2) {
       this.ui.toast(action === 'missed' ? 'Missed call: Mom' : 'Declined Mom… she’s calling back.', 'warn');
@@ -950,13 +1050,17 @@ export class Game {
       this.phase = 'transition';
       this.save.done.push('downstairs');
       writeSave(this.save);
+      const ep = this.epoch;
       setTimeout(async () => {
+        if (ep !== this.epoch) return;
         await this.ui.dialog([
           { who: 'narrator', text: 'Both dogs: asleep. Dan: asleep. The whole condo: still.' },
           { who: 'louise', text: 'Okay. I’m going to sit down now. Just for a sec.' },
           { who: 'narrator', text: 'She reorganized the shoe rack instead. Goodnight, Louise.' },
         ]);
+        if (ep !== this.epoch) return;
         await this.ui.fade(true);
+        if (ep !== this.epoch) return;
         this.finale();
       }, 900);
     }
@@ -979,7 +1083,9 @@ export class Game {
     this.cam.pushSpec = { dist: 4.2, height: 2.2, yaw: 0.3 };
     void tweens.to(0.6, (k) => (this.cam.push = k * 0.9), easeInOutCubic);
     this.dogs.stare(this.louise.root.position);
+    const ep = this.epoch;
     setTimeout(() => {
+      if (ep !== this.epoch) return;
       this.ui.fail(roast(this.save.sits), 'Tip: keep moving between stops — standing still drains the meter. Finishing stops refills it.', () => {
         this.ui.clearScreens();
         this.meter = 72;
@@ -996,8 +1102,7 @@ export class Game {
   }
 
   private togglePause() {
-    if (this.phase === 'paused') return;
-    if (this.phase !== 'play') return;
+    if (this.phase !== 'play' && this.phase !== 'stop') return;
     this.pausedFrom = this.phase;
     this.phase = 'paused';
     this.openSettings(true);
@@ -1027,10 +1132,10 @@ export class Game {
             void this.enterSet(this.setId, true);
           }
         : undefined,
-      onMap: inGame
+      onDetour: inGame
         ? () => {
             this.phase = this.pausedFrom;
-            void this.peekMap();
+            void this.openDetour();
           }
         : undefined,
     });
@@ -1267,9 +1372,11 @@ export class Game {
       if (d > 2) this.exitArmed = true;
       if (d < 1.2 && this.exitArmed) {
         if (this.requiredLeft() === 0) void this.leaveSet();
-        else if (this.t > this.exitNagT) {
-          this.exitNagT = this.t + 4;
-          this.ui.toast(`Not yet — ${this.requiredLeft()} stop${this.requiredLeft() > 1 ? 's' : ''} left here.`, 'warn');
+        else {
+          this.exitArmed = false;
+          const n = this.requiredLeft();
+          this.ui.toast(`${n} stop${n > 1 ? 's' : ''} left here — leaving early is fine (demo).`, 'warn');
+          void this.openDetour(true);
         }
       }
     }
