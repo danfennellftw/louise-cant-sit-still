@@ -1,8 +1,8 @@
 import './style.css';
 import { Game } from './game/Game';
 
-const game = new Game();
-
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => game.destroy());
-}
+const canvas = document.getElementById('scene') as HTMLCanvasElement;
+const game = new Game(canvas);
+void game.boot();
+// Handy for playtesting from devtools: __game.debugEnter('trail'), __game.debugStop('bed')
+(window as unknown as { __game: Game }).__game = game;

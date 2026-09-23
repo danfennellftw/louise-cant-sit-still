@@ -1,449 +1,1475 @@
-import { Input } from './input';
-import { LOCATIONS, CITY_LABELS, MAP_WIDTH, MAP_HEIGHT, type LocationId } from './locations';
-import { NINA_PHONE_SCENE, SCENES, type ChoiceOption, type SceneConfig } from './scenes';
-import {
-  drawMap,
-  drawPlayer,
-  drawDog,
-  drawDanNpc,
-  drawBrownFoodPlates,
-  type Dog,
-  type PlayerState,
-} from './render';
+import * as THREE from 'three';
+import { Renderer } from '../engine/renderer';
+import { CameraRig } from '../engine/camera';
+import { Input } from '../engine/input';
+import { Audio, haptic } from '../engine/audio';
+import { tweens } from '../engine/tween';
+import { clamp, damp, dampAngle, easeInOutCubic, easeOutBack, sleep } from '../engine/util';
+import { Actor, VIEW } from '../art/characters/actor';
+import { LOUISE_LOOK } from '../art/characters/human';
+import { preloadSprites } from '../art/characters/sprite';
+import { Confetti, StopMarker, TapMarker } from '../art/fx';
+import { G } from '../art/geo';
+import { loadOptionalGlb } from '../engine/assets';
+import { WIND } from '../art/materials';
+import { ebike } from '../art/props/outdoor';
+import { UI } from '../ui/ui';
+import { MiniGames } from '../ui/minigames';
+import { showDayMap } from '../ui/daymap';
+import { showDetour, type DetourTarget } from '../ui/demo';
+import { DogPack, type Dog } from './dogs';
+import { resolveCircle, clampBounds, separate } from './physics';
+import { puddleMat } from '../world/sets/condoDressing';
+import { CALLS, type CallerId } from './calls';
+import { SETS, ACTS, actOf, allDone, isFirstOfAct, roast, loadSave, writeSave, clearSave, type SetId, type SaveData } from './story';
+import type { BuiltSet, StopDef, LightKit, MarkSpot, Line } from '../world/types';
 
-type GamePhase = 'title' | 'playing' | 'dialog' | 'fail' | 'win';
+type Phase = 'boot' | 'title' | 'intro' | 'play' | 'stop' | 'transition' | 'fail' | 'paused' | 'finale';
 
-const RESTLESS_MAX = 100;
-const RESTLESS_DRAIN = 9;
-const RESTLESS_REFILL_PASSIVE = 2;
-const PLAYER_SPEED = 220;
-const INTERACT_RADIUS = 52;
+const WALK = 3.1;
+const JOG = 5.2;
+const ACCEL = 15;
+const DECEL = 19;
+const METER_MAX = 100;
+
+
+const LEO_NAGS = [
+  'Dan: “Why does the piano smell like… oh no. LEO.”',
+  'That puddle is still there. Louise can feel it. Restless intensifies.',
+  'Leo is sitting next to the puddle, looking extremely innocent.',
+  'The bar stool leg is now roughly 40% Yorkie.',
+];
+const LEO_OUTROS: Line[] = [
+  { who: 'dan', text: 'Buddy. It’s a piano. It is not a tree.' },
+  { who: 'louise', text: 'Every. Single. Morning. Same two legs.' },
+  { who: 'narrator', text: 'Leg: spotless. Leo: already eyeing the other leg.' },
+];
+const PASSIVE_CAP = 62;
+
+function freshSave(): SaveData {
+  return { done: [], stops: {}, hearts: 0, sits: 0, dogs: 0, tutorial: false };
+}
 
 export class Game {
-  private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
+  private r: Renderer;
+  private cam: CameraRig;
   private input: Input;
-  private hud: HTMLElement;
-  private overlay: HTMLElement;
+  private audio = new Audio();
+  private ui: UI;
+  private minis: MiniGames;
+  private louise: Actor;
+  private dogs: DogPack;
+  private bike = ebike(new THREE.Group(), 0, 0, 0, '#3a3f45', true);
+  private confetti = new Confetti();
+  private tap = new TapMarker();
+  private breadcrumbs: THREE.Mesh[] = [];
 
-  private phase: GamePhase = 'title';
-  private restless = RESTLESS_MAX;
-  private score = 0;
-  private visited = new Set<LocationId>();
-  private stillTime = 0;
-  private ninaCallDone = false;
-  private ninaCallQueued = false;
+  private phase: Phase = 'boot';
+  private pausedFrom: Phase = 'play';
+  private save: SaveData = freshSave();
+  private setId: SetId = 'condo';
+  private set: BuiltSet | null = null;
+  private markers = new Map<string, StopMarker>();
+  private exitMarker: StopMarker | null = null;
+  private stopsDone = new Set<string>();
 
-  private player: PlayerState = { x: 520, y: 440, facing: 0, moving: false };
-  private mochi: Dog = { x: 500, y: 455, phase: 0 };
-  private aleo: Dog = { x: 485, y: 460, phase: 1.5 };
+  private vel = new THREE.Vector3();
+  private autoTarget: THREE.Vector3 | null = null;
+  private autoResolve: (() => void) | null = null;
+  private tapTarget: THREE.Vector3 | null = null;
+  private pendingStop: StopDef | null = null;
+  private meter = METER_MAX;
+  private still = 0;
+  private hitStop = 0;
+  private t = 0;
+  private last = 0;
+  private lastProgress = 0;
+  private heartbeatT = 0;
+  private gatesHit = new Set<number>();
+  private coachStep = 0;
+  private movedDist = 0;
+  private chaosDelay = 16;
+  private raycaster = new THREE.Raycaster();
+  private ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  private tmp = new THREE.Vector3();
+  private titleOrbit = 0;
 
-  private camX = 0;
-  private camY = 0;
+  constructor(canvas: HTMLCanvasElement) {
+    this.r = new Renderer(canvas);
+    this.cam = new CameraRig(this.r.camera);
+    this.input = new Input(canvas);
+    this.ui = new UI(this.audio);
+    this.minis = new MiniGames(this.audio);
+    this.louise = new Actor('louise', { sprite: 'sprites/louise.webp', height: 1.66, look: LOUISE_LOOK });
+    this.louise.onFootstep = () => {
+      if ((this.phase === 'play' || this.phase === 'stop') && this.louise.speed > 0.3 && this.set) this.audio.step(this.set.surface);
+    };
+    this.dogs = new DogPack({
+      bark: (d, text) => this.bark(d, text),
+      alert: (d) => {
+        this.ui.label(`bark-${d.name}`, '!', 'alert', 0.9);
+        this.audio.bark(d.name);
+      },
+      toast: (t, k) => this.ui.toast(t, k),
+      focus: (p, s) => this.focusBriefly(p, s),
+      bump: (d, dir) => this.onBump(d, dir),
+      caught: (d, what) => this.onCaught(d, what),
+      petted: (d) => {
+        this.addHearts(2, d.pos);
+        this.meter = Math.min(METER_MAX, this.meter + 6);
+        this.ui.toast(`${d.display} got pets. Worth it.`, 'good');
+        this.audio.heart(3);
+      },
+      bedded: (d, all) => this.onBedded(d, all),
+      marked: (_d, id) => this.onLeoMarked(id),
+    });
+    this.minis.onBeat = (k) => {
+      if (k === 'good') this.louise.pop(0.12);
+      if (k === 'tick') this.louise.pop(0.05);
+    };
+    this.r.scene.add(this.louise.root, this.confetti.mesh, this.tap.mesh);
+    this.dogs.dogs.forEach((d) => this.r.scene.add(d.actor.root));
+    const crumbMat = new THREE.MeshBasicMaterial({ color: '#ffe29a', transparent: true, opacity: 0, depthWrite: false, toneMapped: false });
+    for (let i = 0; i < 7; i++) {
+      const m = new THREE.Mesh(G.circle(0.09, 16), crumbMat.clone());
+      m.rotation.x = -Math.PI / 2;
+      m.renderOrder = 3;
+      this.breadcrumbs.push(m);
+      this.r.scene.add(m);
+    }
+    this.bike.group.visible = false;
+    this.louise.root.add(this.bike.group);
 
-  private activeScene: SceneConfig | null = null;
-  private dialogLines: string[] = [];
-  private dialogIndex = 0;
-  private pendingLocation: LocationId | null = null;
-  private pendingChoiceBonus: { score: number; restless: number } | null = null;
-  private showHomeKitchen = false;
-  private kitchenAlpha = 0;
-
-  private lastTime = 0;
-  private animId = 0;
-
-  constructor() {
-    const canvas = document.getElementById('game') as HTMLCanvasElement;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas 2D not supported');
-    this.canvas = canvas;
-    this.ctx = ctx;
-    this.input = new Input();
-    this.hud = document.getElementById('hud')!;
-    this.overlay = document.getElementById('overlay')!;
-
-    this.resize();
-    window.addEventListener('resize', () => this.resize());
-    this.showTitle();
-    this.loop(0);
+    this.input.onInteract = () => {
+      if (this.phase === 'play' && this.ui.promptVisible) this.ui.pressPrompt();
+    };
+    this.input.onPause = () => this.togglePause();
+    this.input.onTap = (x, y) => this.onTap(x, y);
+    document.getElementById('btn-pause')!.onclick = () => this.togglePause();
+    const muteBtn = document.getElementById('btn-mute')!;
+    muteBtn.classList.toggle('muted', this.audio.muted);
+    muteBtn.onclick = () => muteBtn.classList.toggle('muted', this.audio.toggleMute());
+    document.getElementById('btn-map')!.onclick = () => void this.openDetour(true);
+    document.getElementById('btn-detour')!.onclick = () => void this.openDetour();
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && this.phase === 'play') this.togglePause();
+    });
+    this.r.onQualityChange = () => this.set?.particles.forEach((p) => (p.pixelScale = this.r.pixelScale));
+    this.ui.onFadeStuck = () => this.stuck('The scene took too long to appear.');
+    this.r.onContextLost = () => {
+      if (this.phase === 'play') this.phase = 'paused';
+      this.ui.recover('Graphics hiccup', 'Your phone paused the 3D view to save memory. Hang on, it usually comes right back.', [
+        { label: 'Reload the game', run: () => location.reload() },
+      ]);
+    };
+    this.r.onContextRestored = () => {
+      this.ui.clearRecover();
+      this.r.forceLevel('low');
+      void this.enterSet(this.setId, true);
+    };
+    window.addEventListener('unhandledrejection', (e) => this.onFatal(e.reason));
+    window.addEventListener('error', (e) => this.onFatal(e.error ?? e.message));
+    requestAnimationFrame((t) => this.frame(t));
   }
 
-  private resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = this.canvas.clientWidth;
-    const h = this.canvas.clientHeight;
-    this.canvas.width = w * dpr;
-    this.canvas.height = h * dpr;
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  /* =================== boot / title =================== */
+  async boot() {
+    await Promise.race([document.fonts?.ready ?? Promise.resolve(), sleep(1500)]);
+    await preloadSprites(['sprites/louise.webp', 'sprites/dan.webp', 'sprites/mochi.webp', 'sprites/leo.webp']);
+    this.loadSetNow('condo');
+    this.louise.root.position.set(-1.2, 0, -0.4);
+    this.louise.facing = 0.3;
+    this.dogs.dogs[0].pos.set(-0.2, 0, 0.4);
+    this.dogs.dogs[1].pos.set(-2.1, 0, 0.3);
+    this.phase = 'title';
+    this.cam.cine = 1;
+    this.audio.playMusic('title');
+    this.showTitle();
+    await this.ui.fade(false);
   }
 
   private showTitle() {
-    this.phase = 'title';
-    this.overlay.classList.remove('hidden');
-    this.overlay.innerHTML = `
-      <div class="card">
-        <h1>Louise Can't Sit Still</h1>
-        <p>A loving Orange County adventure. Help Louise visit every stop before the restless meter hits zero. Mochi & Aleo are coming too.</p>
-        <p class="hint">WASD / arrows on desktop · joystick or tap-to-move on phone</p>
-        <button class="btn" id="btn-start">Let's putter</button>
-      </div>
-    `;
-    document.getElementById('btn-start')?.addEventListener('click', () => this.startGame());
-  }
-
-  private startGame() {
-    this.phase = 'playing';
-    this.restless = RESTLESS_MAX;
-    this.score = 0;
-    this.visited.clear();
-    this.stillTime = 0;
-    this.ninaCallDone = false;
-    this.ninaCallQueued = false;
-    this.player = { x: 520, y: 460, facing: 0, moving: false };
-    this.overlay.classList.add('hidden');
-    this.updateHud();
-  }
-
-  private getSceneForLocation(id: LocationId): SceneConfig {
-    const custom = SCENES[id];
-    if (custom) return custom;
-    const loc = LOCATIONS.find((l) => l.id === id)!;
-    return {
-      mode: 'standard',
-      title: '✨ Stop complete',
-      lines: [loc.quip],
-    };
-  }
-
-  private startDialog(scene: SceneConfig, locationId: LocationId | null) {
-    this.phase = 'dialog';
-    this.activeScene = scene;
-    this.dialogLines = scene.lines;
-    this.dialogIndex = 0;
-    this.pendingLocation = locationId;
-    this.pendingChoiceBonus = null;
-    this.showHomeKitchen =
-      locationId === 'home' && scene.lines.some((l) => l.includes('brown food'));
-    this.kitchenAlpha = 0;
-    this.showDialogCard();
-  }
-
-  private bubbleClass(line: string): string {
-    if (line.startsWith('Nina:')) return 'nina';
-    if (line.startsWith('Louise:')) return 'louise';
-    return line.includes('Nina') ? 'nina' : 'louise';
-  }
-
-  private bubbleText(line: string): string {
-    return line.replace(/^(Louise|Nina):\s*/, '');
-  }
-
-  private showDialogCard() {
-    const scene = this.activeScene!;
-    const line = this.dialogLines[this.dialogIndex] ?? '';
-    const atChoices =
-      scene.mode === 'choices' &&
-      scene.choices &&
-      this.dialogIndex >= this.dialogLines.length - 1;
-
-    if (scene.mode === 'phone') {
-      const bubbles = this.dialogLines
-        .slice(0, this.dialogIndex + 1)
-        .map(
-          (l) =>
-            `<div class="bubble ${this.bubbleClass(l)}">${this.escapeHtml(this.bubbleText(l))}</div>`
-        )
-        .join('');
-      const isLast = this.dialogIndex >= this.dialogLines.length - 1;
-      this.overlay.classList.remove('hidden');
-      this.overlay.innerHTML = `
-        <div class="card">
-          <h2>${scene.title}</h2>
-          <div class="phone-thread">${bubbles}</div>
-          <button class="btn" id="btn-dialog">${isLast ? 'Hang up & keep moving' : '…'}</button>
-        </div>
-      `;
-      document.getElementById('btn-dialog')?.addEventListener('click', () => this.advanceDialog());
-      return;
-    }
-
-    if (atChoices && scene.choices) {
-      const choiceHtml = scene.choices
-        .map(
-          (c, i) =>
-            `<button class="btn-choice" data-choice="${i}">${this.escapeHtml(c.label)}</button>`
-        )
-        .join('');
-      this.overlay.classList.remove('hidden');
-      this.overlay.innerHTML = `
-        <div class="card">
-          <h2>${scene.title}</h2>
-          ${scene.lines.map((l) => `<p class="dialog-line" style="min-height:auto;margin:6px 0">${this.escapeHtml(l)}</p>`).join('')}
-          <div class="choice-stack">${choiceHtml}</div>
-        </div>
-      `;
-      scene.choices.forEach((choice, i) => {
-        document.querySelector(`[data-choice="${i}"]`)?.addEventListener('click', () =>
-          this.pickChoice(choice)
-        );
-      });
-      return;
-    }
-
-    const isLast = this.dialogIndex >= this.dialogLines.length - 1;
-    const btnLabel = isLast ? 'On to the next adventure' : 'Next';
-    this.overlay.classList.remove('hidden');
-    this.overlay.innerHTML = `
-      <div class="card">
-        <h2>${scene.title}</h2>
-        <div class="dialog-line">${this.escapeHtml(line)}</div>
-        <button class="btn" id="btn-dialog">${btnLabel}</button>
-      </div>
-    `;
-    document.getElementById('btn-dialog')?.addEventListener('click', () => this.advanceDialog());
-  }
-
-  private escapeHtml(s: string): string {
-    return s
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
-  private pickChoice(choice: ChoiceOption) {
-    this.pendingChoiceBonus = { score: choice.scoreBonus, restless: choice.restlessBonus };
-    this.dialogLines = [...this.dialogLines, choice.line];
-    this.dialogIndex = this.dialogLines.length - 1;
-    this.activeScene = {
-      mode: 'standard',
-      title: '🤖 Still looking…',
-      lines: [choice.line],
-    };
-    this.overlay.innerHTML = `
-      <div class="card">
-        <h2>${this.activeScene.title}</h2>
-        <div class="dialog-line">${this.escapeHtml(choice.line)}</div>
-        <button class="btn" id="btn-dialog">On to the next adventure</button>
-      </div>
-    `;
-    document.getElementById('btn-dialog')?.addEventListener('click', () => this.advanceDialog());
-  }
-
-  private advanceDialog() {
-    if (this.dialogIndex < this.dialogLines.length - 1) {
-      this.dialogIndex++;
-      if (this.pendingLocation === 'home' && this.dialogIndex === 3) this.kitchenAlpha = 1;
-      this.showDialogCard();
-      return;
-    }
-
-    if (this.pendingLocation) {
-      const loc = LOCATIONS.find((l) => l.id === this.pendingLocation)!;
-      this.visited.add(this.pendingLocation);
-      this.score += loc.points + (this.pendingChoiceBonus?.score ?? 0);
-      this.restless = Math.min(
-        RESTLESS_MAX,
-        this.restless + loc.restlessBoost + (this.pendingChoiceBonus?.restless ?? 0)
-      );
-    }
-
-    const wasNinaOnly = this.pendingLocation === null && this.activeScene === NINA_PHONE_SCENE;
-    this.pendingLocation = null;
-    this.pendingChoiceBonus = null;
-    this.activeScene = null;
-    this.showHomeKitchen = false;
-    this.kitchenAlpha = 0;
-
-    if (!wasNinaOnly && !this.ninaCallDone && this.visited.size >= 3) {
-      this.ninaCallQueued = true;
-    }
-
-    if (this.ninaCallQueued && !this.ninaCallDone) {
-      this.ninaCallQueued = false;
-      this.ninaCallDone = true;
-      this.startDialog(NINA_PHONE_SCENE, null);
-      return;
-    }
-
-    if (this.visited.size >= LOCATIONS.length) {
-      this.showWin();
-      return;
-    }
-    this.phase = 'playing';
-    this.overlay.classList.add('hidden');
-    this.updateHud();
-  }
-
-  private showFail() {
-    this.phase = 'fail';
-    this.overlay.classList.remove('hidden');
-    this.overlay.innerHTML = `
-      <div class="card">
-        <h1>Louise sat still.</h1>
-        <p>Unprecedented. The universe is confused. Mochi stared. Aleo judged softly.</p>
-        <p class="hint">Score: ${this.score} · Stops: ${this.visited.size}/${LOCATIONS.length}</p>
-        <button class="btn" id="btn-retry">Get her moving again</button>
-      </div>
-    `;
-    document.getElementById('btn-retry')?.addEventListener('click', () => this.startGame());
-  }
-
-  private showWin() {
-    this.phase = 'win';
-    const shareText = `Louise completed OC. She still won't sit down. Score: ${this.score}`;
-    this.overlay.classList.remove('hidden');
-    this.overlay.innerHTML = `
-      <div class="card">
-        <h1>OC conquered!</h1>
-        <p>Every gym, Grit Cycle, Nina call, and vampire facial — and she still showed up anyway.</p>
-        <p class="share-line">"${shareText}"</p>
-        <p class="hint">Score: ${this.score}</p>
-        <button class="btn btn-secondary" id="btn-share">Copy share line</button>
-        <button class="btn" id="btn-replay">Replay</button>
-      </div>
-    `;
-    document.getElementById('btn-replay')?.addEventListener('click', () => this.startGame());
-    document.getElementById('btn-share')?.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(shareText);
-        const btn = document.getElementById('btn-share');
-        if (btn) btn.textContent = 'Copied!';
-      } catch {
-        /* ignore */
-      }
+    const existing = loadSave();
+    this.ui.showHud(false);
+    this.ui.title({
+      hasSave: !!existing && existing.done.length > 0,
+      onPlay: () => void this.startNew(),
+      onContinue: () => void this.continueGame(),
+      onSettings: () => this.openSettings(false),
+      onDetour: () => void this.titleDetour(),
     });
   }
 
-  private pillLabel(id: LocationId, label: string): string {
-    if (id === 'home') return 'Home';
-    if (id === 'grit_cycle') return 'Grit';
-    if (id === 'ai_meetup') return 'AI';
-    if (id.startsWith('gym_')) return label;
-    return label.split(' ')[0];
+  private async startNew() {
+    this.audio.unlock();
+    this.audio.click();
+    clearSave();
+    this.save = freshSave();
+    writeSave(this.save);
+    this.ui.clearScreens();
+    this.phase = 'intro';
+    await this.ui.stinger(ACTS[0].num, ACTS[0].title, ACTS[0].sub);
+    await this.enterSet('condo', false);
   }
 
-  private updateHud() {
-    const pct = Math.max(0, Math.min(100, this.restless));
-    const pills = LOCATIONS.map((l) => {
-      const done = this.visited.has(l.id);
-      const short = this.pillLabel(l.id, l.label);
-      return `<span class="quest-pill ${done ? 'done' : ''}">${short}</span>`;
-    }).join('');
-    this.hud.innerHTML = `
-      <div class="hud-row">
-        <span class="hud-title">Louise · OC day</span>
-        <span class="hud-score">${this.score} pts</span>
-      </div>
-      <div class="meter-wrap"><div class="meter-fill ${pct < 25 ? 'low' : ''}" style="width:${pct}%"></div></div>
-      <div class="meter-label">Restless meter — keep moving!</div>
-      <div class="quest-pills">${pills}</div>
-    `;
+  private async continueGame() {
+    this.audio.unlock();
+    this.audio.click();
+    this.save = loadSave() ?? freshSave();
+    this.ui.clearScreens();
+    this.phase = 'transition';
+    await this.ui.fade(true);
+    await this.pickNext();
   }
 
-  private loop(now: number) {
-    const dt = Math.min((now - this.lastTime) / 1000, 0.05);
-    this.lastTime = now;
+  /** Dev helper: jump straight into a set (window.__game.debugEnter('trail')). */
+  debugEnter(id: SetId) {
+    this.audio.unlock();
+    this.ui.clearScreens();
+    void this.enterSet(id, true);
+  }
 
-    if (this.phase === 'playing') {
-      this.updatePlaying(dt);
-      this.updateHud();
+  /** Dev helper: ring a phone call now (window.__game.debugCall('mom')). */
+  debugCall(who: CallerId) {
+    this.pendingCall = { who, delay: 0.05, attempt: 1 };
+  }
+
+  /** Dev helper: open a stop in the current set directly. */
+  debugStop(id: string) {
+    const s = this.set?.stops.find((x) => x.id === id);
+    if (s) void this.runStop(s);
+  }
+
+  /* =================== set lifecycle =================== */
+  private unloadSet() {
+    if (!this.set) return;
+    this.r.scene.remove(this.set.root);
+    this.set.dispose();
+    this.markers.forEach((m) => {
+      this.r.scene.remove(m.root);
+      m.dispose();
+    });
+    this.markers.clear();
+    if (this.exitMarker) {
+      this.r.scene.remove(this.exitMarker.root);
+      this.exitMarker.dispose();
+      this.exitMarker = null;
     }
-
-    this.render();
-    this.animId = requestAnimationFrame((t) => this.loop(t));
+    this.ui.clearLabels();
+    tweens.clear();
+    this.set = null;
   }
 
-  private updatePlaying(dt: number) {
-    const move = this.input.updateFromKeyboard();
-    let mx = move.x;
-    let my = move.y;
-
-    const tap = this.input.consumeTapTarget();
-    if (tap && mx === 0 && my === 0) {
-      const worldX = this.camX + tap.x * this.canvas.clientWidth;
-      const worldY = this.camY + tap.y * this.canvas.clientHeight;
-      const dx = worldX - this.player.x;
-      const dy = worldY - this.player.y;
-      const len = Math.hypot(dx, dy) || 1;
-      mx = dx / len;
-      my = dy / len;
+  private loadSetNow(id: SetId) {
+    this.unloadSet();
+    this.setId = id;
+    const set = SETS[id].build(this.r.level);
+    this.set = set;
+    this.r.scene.add(set.root);
+    this.r.applyLightKit(set.light);
+    VIEW.tint.copy(spriteTint(set.light));
+    this.cam.setSpec(set.camera, set.bounds);
+    set.particles.forEach((p) => (p.pixelScale = this.r.pixelScale));
+    this.stopsDone = new Set(this.save.stops[id] ?? []);
+    for (const s of set.stops) {
+      this.addStopMarker(s);
+      if (this.stopsDone.has(s.id)) set.hooks[s.id]?.done?.();
     }
-
-    const moving = Math.hypot(mx, my) > 0.15;
-    this.player.moving = moving;
-
-    if (moving) {
-      this.player.x += mx * PLAYER_SPEED * dt;
-      this.player.y += my * PLAYER_SPEED * dt;
-      this.player.facing = Math.atan2(my, mx);
-      this.stillTime = 0;
-      this.restless = Math.min(RESTLESS_MAX, this.restless + RESTLESS_REFILL_PASSIVE * dt);
-    } else {
-      this.stillTime += dt;
-      this.restless -= RESTLESS_DRAIN * dt;
-      if (this.stillTime > 0.4 && this.restless <= 0) {
-        this.showFail();
-        return;
+    this.dirtySpots.clear();
+    this.markPending = null;
+    this.leoMarkN = 0;
+    this.leoMarkT = set.markSpots ? 32 : 0;
+    if (set.exit) {
+      this.exitMarker = new StopMarker('#fff6ec', 0.9, 2.4);
+      this.exitMarker.root.position.set(set.exit.x, 0, set.exit.z);
+      this.exitMarker.state = 'hidden';
+      this.r.scene.add(this.exitMarker.root);
+    }
+    const sp = this.spawnAt ? { ...set.spawn, x: this.spawnAt[0], z: this.spawnAt[1] } : set.spawn;
+    this.spawnAt = null;
+    this.louise.root.position.set(sp.x, 0, sp.z);
+    this.louise.facing = sp.face;
+    this.louise.setState(set.vehicle ? 'ride' : 'idle');
+    this.bike.group.visible = set.vehicle === 'ebike';
+    this.vel.set(0, 0, 0);
+    this.autoTarget = null;
+    this.tapTarget = null;
+    this.pendingStop = null;
+    this.gatesHit.clear();
+    this.exitArmed = false;
+    const first = id === 'condo' && !this.save.tutorial;
+    this.dogs.reset(set, this.louise.root.position, first ? 40 : this.chaosDelay);
+    this.audio.setAmbience(set.ambience);
+    this.audio.playMusic(set.music);
+    this.ui.setChapter(SETS[id].time, `${SETS[id].title} · ${SETS[id].place}`);
+    this.refreshObjectives();
+    this.cam.snap(this.louise.root.position);
+    set.events.sfx = (sfx, at) => {
+      if (sfx === 'horn' && Math.abs(at.z - this.louise.root.position.z) < 55) {
+        this.audio.horn();
+        this.ui.toast('Train coming across the trestle!', 'good');
       }
-    }
-
-    this.player.x = Math.max(40, Math.min(MAP_WIDTH - 40, this.player.x));
-    this.player.y = Math.max(40, Math.min(MAP_HEIGHT - 40, this.player.y));
-
-    this.updateDogs(dt);
-
-    for (const loc of LOCATIONS) {
-      if (this.visited.has(loc.id)) continue;
-      const d = Math.hypot(loc.x - this.player.x, loc.y - this.player.y);
-      if (d < INTERACT_RADIUS) {
-        this.startDialog(this.getSceneForLocation(loc.id), loc.id);
-        break;
-      }
-    }
-  }
-
-  private updateDogs(dt: number) {
-    const follow = (dog: Dog, offset: number) => {
-      dog.phase += dt * 8;
-      const tx = this.player.x - offset;
-      const ty = this.player.y + offset * 0.5;
-      dog.x += (tx - dog.x) * Math.min(1, dt * 6);
-      dog.y += (ty - dog.y) * Math.min(1, dt * 6);
     };
-    follow(this.mochi, 22);
-    follow(this.aleo, 36);
+    void this.tryEnvironmentOverride(id, set);
   }
 
-  private render() {
-    const vw = this.canvas.clientWidth;
-    const vh = this.canvas.clientHeight;
+  /**
+   * Optional art drop-in: `public/environments/<setId>.glb` replaces the set's baked static
+   * meshes while stops, NPCs, lights and colliders keep working. Meshes named `collider*`
+   * inside the GLB become extra invisible colliders.
+   */
+  private async tryEnvironmentOverride(id: SetId, set: BuiltSet) {
+    if (!__ENV_GLBS__.includes(id)) return;
+    const gltf = await loadOptionalGlb(`environments/${id}.glb`);
+    if (!gltf || this.set !== set) return;
+    const scene = gltf.scene;
+    scene.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      if (/^collider/i.test(m.name)) {
+        box.setFromObject(m);
+        set.colliders.push({ x0: box.min.x, z0: box.min.z, x1: box.max.x, z1: box.max.z });
+        m.visible = false;
+      } else {
+        m.castShadow = true;
+        m.receiveShadow = true;
+      }
+    });
+    set.root.children.forEach((c) => {
+      if (c.userData.baked) c.visible = false;
+    });
+    set.root.add(scene);
+  }
 
-    this.camX = this.player.x - vw / 2;
-    this.camY = this.player.y - vh / 2;
-    this.camX = Math.max(0, Math.min(MAP_WIDTH - vw, this.camX));
-    this.camY = Math.max(0, Math.min(MAP_HEIGHT - vh, this.camY));
+  private async enterSet(id: SetId, fadeIn = true): Promise<boolean> {
+    const ep = ++this.epoch;
+    this.phase = 'intro';
+    this.ui.clearRecover();
+    if (fadeIn || (this.set?.root && this.setId !== id)) await this.ui.fade(true, true);
+    if (ep !== this.epoch) return false;
+    try {
+      this.loadSetNow(id);
+    } catch (err) {
+      console.error(`[game] failed to build set "${id}"`, err);
+      this.setFailed(id);
+      return false;
+    }
+    this.meter = Math.max(this.meter, 85);
+    this.still = 0;
+    this.lastProgress = this.t;
+    const set = this.set!;
+    // establishing shot: start wide & high, push in to gameplay framing
+    const b = set.bounds;
+    const cx = (b.x0 + b.x1) / 2;
+    const cz = (b.z0 + b.z1) / 2;
+    const long = b.z1 - b.z0 > 40;
+    this.cam.cineLook.set(long ? this.louise.root.position.x : cx, 0.5, long ? this.louise.root.position.z - 12 : cz);
+    this.cam.cinePos.set(this.cam.cineLook.x + (long ? 0 : -4), long ? 12 : 15, this.cam.cineLook.z + (long ? 22 : 17));
+    this.cam.cine = 1;
+    this.cam.orbit = 0;
+    this.ui.clearScreens();
+    this.ui.coach(null);
+    this.ui.showHud(true);
+    await this.ui.fade(false);
+    if (ep !== this.epoch) return false;
+    const meta = SETS[id];
+    void this.ui.chapterCard(`${meta.time} · ${meta.place}`, meta.title, actOf(id).title, 2400);
+    this.audio.whoosh();
+    await tweens.to(1.7, (k) => (this.cam.cine = 1 - k), easeInOutCubic);
+    if (ep !== this.epoch) return false;
+    this.cam.cine = 0;
+    this.phase = 'play';
+    this.lastProgress = this.t;
+    this.coachStep = id === 'condo' && !this.save.tutorial ? 1 : 0;
+    if (id === 'trail') this.ui.toast('Ride through the glowing gates to keep her charged!', 'good');
+    if (set.dogBeds) {
+      this.ui.coach('Herd <b>Mochi</b> and <b>Leo</b> to their glowing beds — walk <b>behind</b> them to nudge them along.');
+      setTimeout(() => this.ui.coach(null), 5000);
+    }
+    return true;
+  }
 
-    this.ctx.save();
-    this.ctx.clearRect(0, 0, vw, vh);
-    this.ctx.translate(-this.camX, -this.camY);
+  /** A set failed to build: offer a lighter retry, the map, or a reload — never a blank screen. */
+  private setFailed(id: SetId) {
+    this.phase = 'transition';
+    this.ui.showHud(false);
+    this.ui.clearScreens();
+    this.ui.recover('That scene didn’t load', `Something went wrong setting up ${SETS[id].title}. Your progress is saved.`, [
+      {
+        label: 'Try again',
+        primary: true,
+        run: () => {
+          this.r.forceLevel('low');
+          void this.enterSet(id, true);
+        },
+      },
+      { label: 'Back to the day map', run: () => void this.pickNext() },
+      { label: 'Reload the game', run: () => location.reload() },
+    ]);
+  }
 
-    drawMap(this.ctx, CITY_LABELS, LOCATIONS, this.visited);
-    drawDog(this.ctx, this.aleo, 'Aleo', false);
-    drawDog(this.ctx, this.mochi, 'Mochi', true);
-    drawPlayer(this.ctx, this.player);
+  private stuck(why: string) {
+    if (this.phase === 'play' || this.phase === 'title' || this.phase === 'finale') {
+      void this.ui.fade(false);
+      return;
+    }
+    console.error(`[game] transition stuck in phase "${this.phase}": ${why}`);
+    this.ui.clearScreens();
+    this.ui.recover('Louise got lost between stops', `${why} Your progress is saved.`, [
+      {
+        label: 'Continue',
+        primary: true,
+        run: () => (this.set && !this.save.done.includes(this.setId) ? void this.enterSet(this.setId, true) : void this.pickNext()),
+      },
+      { label: 'Open the day map', run: () => void this.pickNext() },
+      { label: 'Reload the game', run: () => location.reload() },
+    ]);
+  }
 
-    const home = LOCATIONS.find((l) => l.id === 'home')!;
-    if (this.showHomeKitchen || (this.phase === 'dialog' && this.pendingLocation === 'home')) {
-      const alpha = this.phase === 'dialog' && this.dialogIndex >= 3 ? 1 : this.kitchenAlpha;
-      drawDanNpc(this.ctx, home.x + 40, home.y - 10, this.dialogIndex >= 4 || alpha > 0);
-      drawBrownFoodPlates(this.ctx, home.x - 30, home.y + 20, alpha);
+  private onFatal(err: unknown) {
+    console.error('[game] uncaught error', err);
+    if (this.phase === 'transition' || this.phase === 'intro' || this.ui.fadeOn) this.stuck('A scene change hit an error.');
+  }
+
+  private async leaveSet() {
+    if (this.phase !== 'play') return;
+    this.phase = 'transition';
+    this.ui.hidePrompt();
+    this.ui.coach(null);
+    this.hideGuides();
+    this.audio.whoosh();
+    const p = this.louise.root.position;
+    this.cam.cinePos.set(p.x, 9, p.z + 9);
+    this.cam.cineLook.set(p.x, 1, p.z);
+    void tweens.to(0.6, (k) => (this.cam.cine = k));
+    await this.ui.fade(true);
+    if (!this.save.done.includes(this.setId)) this.save.done.push(this.setId);
+    if (this.setId === 'condo') this.save.tutorial = true;
+    writeSave(this.save);
+    await this.pickNext();
+  }
+
+  private async pickNext() {
+    const done = new Set(this.save.done);
+    if (allDone(done)) return this.finale();
+    this.ui.showHud(false);
+    // the map lives under #fade in the stacking order, so the fade must lift first
+    await this.ui.fade(false);
+    const next = await showDayMap(this.ui.screens, this.audio, done, this.setId, false);
+    if (!next) return;
+    await this.travelTo(next);
+  }
+
+  /** Go to any stop. Finished stops are reset so they can be replayed. */
+  private async travelTo(next: SetId) {
+    const done = new Set(this.save.done);
+    if (done.has(next)) {
+      this.save.stops[next] = [];
+      writeSave(this.save);
+    }
+    if (isFirstOfAct(next, done)) {
+      const act = actOf(next);
+      await this.ui.stinger(act.num, act.title, act.sub);
+    }
+    await this.enterSet(next, true);
+  }
+
+  /* =================== demo detours: jump anywhere, from any state =================== */
+  /** Bumped whenever a set loads; async stop / call / fail flows bail when it changes under them. */
+  private epoch = 0;
+  private detourOpen = false;
+  private spawnAt: [number, number] | null = null;
+
+  /** Detour panel (or straight to the full day map) → a target, or null when closed. */
+  private async pickDetour(closeLabel: string, startWithMap = false): Promise<DetourTarget | null> {
+    const current = this.phase === 'title' ? null : this.setId;
+    let map = startWithMap;
+    for (;;) {
+      if (!map) {
+        const r = await showDetour(this.ui.screens, this.audio, { current, closeLabel });
+        if (r !== 'map') return r;
+      }
+      const id = await showDayMap(this.ui.screens, this.audio, new Set(this.save.done), current, true, true);
+      if (id) return { set: id };
+      if (startWithMap) return null;
+      map = false;
+    }
+  }
+
+  private async openDetour(startWithMap = false) {
+    if (this.detourOpen || this.phase === 'boot' || this.phase === 'title' || this.phase === 'transition') return;
+    this.detourOpen = true;
+    const prev = this.phase;
+    this.phase = 'paused';
+    this.ui.hideDetourPill(true);
+    const pick = await this.pickDetour(prev === 'stop' ? 'Back to the stop' : 'Back to the game', startWithMap);
+    this.ui.hideDetourPill(false);
+    this.detourOpen = false;
+    if (!pick) {
+      if (this.phase === 'paused') this.phase = prev;
+      return;
+    }
+    await this.detourTo(pick);
+  }
+
+  private async titleDetour() {
+    if (this.detourOpen) return;
+    this.audio.unlock();
+    this.audio.click();
+    this.detourOpen = true;
+    this.save = loadSave() ?? freshSave();
+    const pick = await this.pickDetour('Back');
+    this.detourOpen = false;
+    if (!pick) return;
+    this.save.tutorial = true;
+    writeSave(this.save);
+    await this.detourTo(pick);
+  }
+
+  /** Abandon whatever is in flight (stop, mini, dialog, call, fail card) and land cleanly on the target. */
+  private async detourTo(t: DetourTarget) {
+    this.epoch++;
+    this.minis.abort();
+    this.ui.abortDialog();
+    this.ui.clearCalls();
+    this.ui.clearRecover();
+    this.ui.clearScreens();
+    this.ui.coach(null);
+    this.ui.hidePrompt();
+    this.hideGuides();
+    this.pendingCall = null;
+    this.callBusy = false;
+    this.autoTarget = null;
+    this.autoResolve = null;
+    this.pendingStop = null;
+    this.cam.push = 0;
+    this.cam.focus = null;
+    this.cam.focusWeight = 0;
+    this.hitStop = 0;
+    this.louise.root.position.y = 0;
+    this.phase = 'transition';
+    this.ui.showHud(false);
+    if (this.save.done.includes(t.set)) this.save.stops[t.set] = [];
+    if (t.stop) this.save.stops[t.set] = (this.save.stops[t.set] ?? []).filter((x) => x !== t.stop);
+    writeSave(this.save);
+    this.spawnAt = t.at ?? null;
+    const ok = await this.enterSet(t.set, true);
+    if (!ok || !this.set || this.setId !== t.set) return;
+    if (t.call) {
+      this.save.calls = { ...(this.save.calls ?? {}), [t.call]: false };
+      this.pendingCall = { who: t.call, delay: 1.2, attempt: 1 };
+    }
+    const stop = t.stop ? this.set.stops.find((x) => x.id === t.stop) : undefined;
+    if (stop && (this.phase as Phase) === 'play') {
+      const st = stop.stand ?? stop.pos;
+      this.louise.root.position.set(st[0] + 0.9, 0, st[1] + 0.9);
+      this.cam.snap(this.louise.root.position);
+      void this.runStop(stop);
+    }
+  }
+
+  private finale() {
+    this.phase = 'finale';
+    this.unloadSetKeepFade();
+    this.loadSetNow('downstairs');
+    this.dogs.dogs.forEach((d, i) => {
+      d.mode = 'bedded';
+      d.pos.set(i ? -3.4 : -6.4, 0.12, i ? 1.9 : 1.2);
+    });
+    this.louise.root.position.set(-4.8, 0, 2.6);
+    this.cam.cinePos.set(-4.8, 3.5, 8);
+    this.cam.cineLook.set(-4.8, 0.8, 1.5);
+    this.cam.cine = 1;
+    this.audio.playMusic('title');
+    void this.ui.fade(false);
+    this.ui.showHud(false);
+    this.confetti.burst(new THREE.Vector3(-4.8, 1.5, 2), 90, 5);
+    this.audio.chime();
+    const stops = Object.values(this.save.stops).reduce((a, s) => a + s.length, 0);
+    this.ui.finale({ hearts: this.save.hearts, stops, sits: this.save.sits, dogs: this.save.dogs }, () => {
+      clearSave();
+      this.ui.clearScreens();
+      void this.startNew();
+    });
+  }
+
+  private unloadSetKeepFade() {
+    this.unloadSet();
+  }
+
+  /* =================== stops =================== */
+  private walkTo(p: THREE.Vector3, timeout = 2.8) {
+    this.autoTarget = p.clone();
+    return Promise.race([
+      new Promise<void>((r) => (this.autoResolve = r)),
+      sleep(timeout * 1000).then(() => {
+        if (this.autoTarget) this.louise.root.position.set(p.x, this.louise.root.position.y, p.z);
+        this.autoTarget = null;
+      }),
+    ]);
+  }
+
+  private async runStop(stop: StopDef) {
+    if (this.phase !== 'play' || !this.set) return;
+    const set = this.set;
+    const ep = this.epoch;
+    this.phase = 'stop';
+    this.pendingStop = null;
+    this.tapTarget = null;
+    this.ui.hidePrompt();
+    this.ui.coach(null);
+    this.hideGuides();
+    if (this.coachStep === 2) this.coachStep = 3;
+    const hooks = set.hooks[stop.id] ?? {};
+    const st = stop.stand ?? stop.pos;
+    const stand = new THREE.Vector3(st[0], 0, st[1]);
+    if (!set.vehicle) await this.walkTo(stand);
+    if (ep !== this.epoch) return;
+    this.vel.set(0, 0, 0);
+    const face = stop.face ?? this.louise.facing;
+    void tweens.to(0.25, (k) => (this.louise.facing = dampAngle(this.louise.facing, face, 30 * k, 0.05)));
+    this.cam.pushSpec = { dist: 4.8, height: 2.8, yaw: 0, ...(stop.push ?? {}) };
+    this.cam.focus = new THREE.Vector3(stop.pos[0], 0, stop.pos[1]);
+    void tweens.to(0.7, (k) => (this.cam.push = k), easeInOutCubic);
+    hooks.start?.();
+    this.markers.get(stop.id)!.state = 'hidden';
+    this.ui.placeLabel(`stop-${stop.id}`, 0, 0, false);
+    if (stop.intro) await this.ui.dialog(stop.intro);
+    if (ep !== this.epoch) return;
+    const root = this.louise.root;
+    const before = root.position.clone();
+    if (stop.poseAt) {
+      const to = new THREE.Vector3(...stop.poseAt);
+      await tweens.to(0.35, (k) => root.position.lerpVectors(before, to, k), easeOutBack);
+      if (ep !== this.epoch) return;
+    }
+    this.louise.setState(stop.pose);
+    this.louise.facing = face;
+    this.dogs.toSpots(stop.dogSpots);
+    if (!stop.dogSpots && stop.mini.type !== 'dialogue' && stop.mini.type !== 'phone') this.dogs.stare(root.position);
+    const res = await this.minis.run(stop.mini, (k) => hooks.progress?.(k));
+    if (ep !== this.epoch) return;
+    hooks.done?.();
+
+    // juice: hit-stop, squash, confetti, chime, meter surge, hearts
+    this.hitStop = 0.14;
+    this.louise.pop(0.32);
+    const at = new THREE.Vector3(stop.pos[0], 1.3, stop.pos[1]);
+    this.confetti.burst(at, 60, 4.2);
+    this.cam.shake(0.18);
+    this.audio.chime();
+    haptic([25, 35, 60]);
+    const refill = stop.refill * (0.65 + 0.35 * res.score);
+    this.meter = Math.min(METER_MAX, this.meter + refill);
+    this.ui.meterBoost();
+    const scr = this.project(at);
+    if (scr) this.ui.floater(`+${Math.round(refill)} restless`, scr.x, scr.y - 30);
+    this.addHearts(stop.hearts + res.hearts, at);
+    this.dogs.celebrate();
+    this.louise.setState(set.vehicle ? 'ride' : 'cheer');
+    await sleep(stop.poseAt ? 500 : 800);
+    if (ep !== this.epoch) return;
+    if (res.lines.length) await this.ui.dialog(res.lines);
+    if (ep !== this.epoch) return;
+    if (stop.outro) await this.ui.dialog(stop.outro);
+    if (ep !== this.epoch) return;
+    if (stop.poseAt) {
+      const from = root.position.clone();
+      await tweens.to(0.3, (k) => root.position.lerpVectors(from, before, k), easeInOutCubic);
+      if (ep !== this.epoch) return;
+    }
+    root.position.y = 0;
+    this.louise.setState(set.vehicle ? 'ride' : 'idle');
+    this.dogs.release();
+    void tweens.to(0.6, (k) => (this.cam.push = 1 - k), easeInOutCubic);
+    this.cam.focus = null;
+    if (stop.transient) {
+      set.stops.splice(set.stops.indexOf(stop), 1);
+      delete set.hooks[stop.id];
+      const m = this.markers.get(stop.id);
+      if (m) {
+        this.r.scene.remove(m.root);
+        m.dispose();
+        this.markers.delete(stop.id);
+      }
+      this.save.dogs++;
+    } else {
+      this.stopsDone.add(stop.id);
+      this.save.stops[this.setId] = [...this.stopsDone];
+      this.markers.get(stop.id)!.state = 'done';
+    }
+    writeSave(this.save);
+    this.lastProgress = this.t;
+    this.ui.dropLabel(`stop-${stop.id}`);
+    if (set.markSpots && this.leoMarkN === 0) this.leoMarkT = Math.min(this.leoMarkT, 7);
+    this.queueHomeCall();
+    this.refreshObjectives();
+    this.still = 0;
+    this.phase = 'play';
+    if (this.requiredLeft() === 0) {
+      if (this.exitMarker) {
+        this.exitMarker.state = 'idle';
+        this.ui.label('exit', this.set.exit!.label, '');
+        this.ui.toast(this.set.exit ? `All done here → ${this.set.exit.label}` : 'All done!', 'good');
+      }
+    }
+    if (this.coachStep === 3) {
+      this.coachStep = 4;
+      this.ui.coach('Her <b>Restless meter</b> drains fast when she stands still. Keep moving — finishing stops refills it!', 'meter');
+      setTimeout(() => this.coachStep === 4 && (this.ui.coach(null), (this.coachStep = 5)), 5200);
+    }
+  }
+
+  private hideGuides() {
+    this.ui.edgeArrow(0, 0, 0, false);
+    this.breadcrumbs.forEach((b) => ((b.material as THREE.MeshBasicMaterial).opacity = 0));
+  }
+
+  /** Spawns sit next to the door, so the exit only arms once she has walked away from it. */
+  private exitArmed = false;
+
+  private requiredLeft() {
+    return this.set ? this.set.stops.filter((s) => !s.optional && !this.stopsDone.has(s.id)).length : 0;
+  }
+
+  private addStopMarker(s: StopDef) {
+    const m = new StopMarker(s.color ?? '#ffd27a', s.radius ?? 0.8, s.poseAt ? 2.3 : 2.1);
+    m.root.position.set(s.pos[0], 0, s.pos[1]);
+    m.state = this.stopsDone.has(s.id) ? 'done' : 'idle';
+    this.markers.set(s.id, m);
+    this.r.scene.add(m.root);
+    this.ui.label(`stop-${s.id}`, s.label + (s.optional ? ' · bonus' : ''));
+  }
+
+  /* =================== Leo vs. the piano leg & the bar stool leg =================== */
+  private leoMarkT = 0;
+  private leoMarkN = 0;
+  private markPending: MarkSpot | null = null;
+  private dirtySpots = new Map<string, { age: number; nags: number; at: THREE.Vector3 }>();
+
+  private updateLeoMarks(dt: number) {
+    const set = this.set;
+    if (!set?.markSpots || this.phase !== 'play') return;
+    const leo = this.dogs.dogs[1];
+    if (this.markPending) {
+      if (leo.mode !== 'mark') {
+        this.markPending = null;
+        this.leoMarkT = 9;
+      } else if (leo.markPhase === 1 && leo.pos.distanceTo(this.louise.root.position) < 1.2) {
+        const spot = this.markPending;
+        this.dogs.cancelMark();
+        this.markPending = null;
+        this.leoMarkT = 26 + Math.random() * 8;
+        this.ui.toast(`Caught Leo sniffing the ${spot.label}. Not today, sir.`, 'good');
+        this.bark(leo, '*innocent face*');
+        this.addHearts(1, leo.pos);
+        this.save.dogs++;
+      }
+    } else {
+      this.leoMarkT -= dt;
+      if (this.leoMarkT <= 0) this.tryLeoMark(set.markSpots);
+    }
+    for (const d of this.dirtySpots.values()) {
+      d.age += dt;
+      if (d.nags < 3 && d.age > 20 * (d.nags + 1)) {
+        d.nags++;
+        this.meter = Math.max(0, this.meter - 10);
+        this.ui.toast(LEO_NAGS[(this.leoMarkN + d.nags) % LEO_NAGS.length], 'warn');
+        this.cam.shake(0.08);
+        const s = this.project(d.at.clone().setY(0.6));
+        if (s) this.ui.floater('−10 restless', s.x, s.y - 20);
+      }
+    }
+  }
+
+  private tryLeoMark(spots: MarkSpot[]) {
+    const want = spots[this.leoMarkN % spots.length];
+    const spot = !this.dirtySpots.has(want.id) ? want : spots.find((s) => !this.dirtySpots.has(s.id));
+    if (!spot) {
+      this.leoMarkT = 12;
+      return;
+    }
+    const leg = new THREE.Vector3(spot.leg[0], 0, spot.leg[1]);
+    if (!this.dogs.startMark(new THREE.Vector3(spot.stand[0], 0, spot.stand[1]), leg, spot.id, this.set?.dogGates)) {
+      this.leoMarkT = 4;
+      return;
+    }
+    this.markPending = spot;
+    this.leoMarkN++;
+    const leo = this.dogs.dogs[1];
+    this.ui.label('bark-leo', '!', 'alert', 0.9);
+    this.audio.bark('leo');
+    this.ui.toast(`Leo is heading for the ${spot.label}… stop him!`, 'dog');
+    this.focusBriefly(leg, 1.2);
+    void leo;
+  }
+
+  private onLeoMarked(id: string) {
+    const set = this.set;
+    const spot = set?.markSpots?.find((s) => s.id === id);
+    if (!set || !spot) return;
+    this.markPending = null;
+    this.leoMarkT = 30 + Math.random() * 10;
+    this.audio.tinkle();
+    const at = new THREE.Vector3(spot.leg[0], 0, spot.leg[1]);
+    const mesh = new THREE.Group();
+    const pud = new THREE.Mesh(G.circle(0.24, 24), puddleMat());
+    pud.rotation.x = -Math.PI / 2;
+    pud.scale.set(1.3, 0.9, 1);
+    pud.position.set(0.1, 0.012, 0.08);
+    pud.renderOrder = 2;
+    const drip = new THREE.Mesh(G.box(0.05, 0.16, 0.05, 0), puddleMat());
+    drip.position.set(0, 0.09, 0);
+    mesh.add(pud, drip);
+    mesh.position.copy(at);
+    set.root.add(mesh);
+    const stopId = `leo-${id}-${this.leoMarkN}`;
+    const stand = spot.stand;
+    const stop: StopDef = {
+      id: stopId,
+      label: `Wipe the ${spot.label} (Leo)`,
+      verb: 'Wipe',
+      pos: [spot.leg[0] + 0.1, spot.leg[1] + 0.08],
+      stand,
+      face: Math.atan2(spot.leg[0] - stand[0], spot.leg[1] - stand[1]),
+      pose: 'work',
+      radius: 1.1,
+      optional: true,
+      transient: true,
+      mini: { type: 'clean', title: `Leo got the ${spot.label}. Again.`, hint: 'Rub the puddle (or mash Space)', mess: ['pee'], leg: spot.kind },
+      outro: [LEO_OUTROS[this.leoMarkN % LEO_OUTROS.length]],
+      refill: 14,
+      hearts: 1,
+      color: '#f2d36b',
+      push: { dist: 3.4, height: 2.6, yaw: 0.3 },
+    };
+    set.stops.push(stop);
+    set.hooks[stopId] = {
+      done: () => {
+        mesh.removeFromParent();
+        this.dirtySpots.delete(id);
+      },
+    };
+    this.addStopMarker(stop);
+    this.dirtySpots.set(id, { age: 0, nags: 0, at });
+    this.refreshObjectives();
+    this.ui.toast(`Leo peed on the ${spot.label}. Again.`, 'warn');
+    this.bark(this.dogs.dogs[1], '*zero regrets*');
+  }
+
+  /* =================== phone calls: Mom (Tagalog) and Nina =================== */
+  private pendingCall: { who: CallerId; delay: number; attempt: number } | null = null;
+  private callBusy = false;
+
+  private updateCalls(dt: number) {
+    if (!this.pendingCall || this.callBusy) return;
+    this.pendingCall.delay -= dt;
+    if (this.pendingCall.delay > 0) return;
+    const { who, attempt } = this.pendingCall;
+    this.pendingCall = null;
+    void this.ringCall(who, attempt);
+  }
+
+  private markCall(who: CallerId) {
+    this.save.calls = { ...(this.save.calls ?? {}), [who]: true };
+    writeSave(this.save);
+    this.queueHomeCall(8);
+  }
+
+  /** Home calls in the condo morning: Mom after the second stop, then Nina (school-pickup check-in) once Mom's is handled. */
+  private queueHomeCall(ninaDelay = 5) {
+    if (this.setId !== 'condo' || this.pendingCall || this.callBusy) return;
+    const done = [...this.stopsDone].length;
+    const calls = this.save.calls ?? {};
+    if (done >= 2 && !calls.mom) this.pendingCall = { who: 'mom', delay: 4, attempt: 1 };
+    else if (done >= 3 && calls.mom && !calls.nina) this.pendingCall = { who: 'nina', delay: ninaDelay, attempt: 1 };
+  }
+
+  private meterNudge(delta: number, label: string) {
+    this.meter = clamp(this.meter + delta, 0, METER_MAX);
+    if (delta > 0) this.ui.meterBoost();
+    const s = this.project(this.louise.root.position.clone().setY(1.9));
+    if (s) this.ui.floater(`${delta > 0 ? '+' : '−'}${Math.abs(delta)} restless · ${label}`, s.x, s.y - 20);
+  }
+
+  private async ringCall(who: CallerId, attempt: number) {
+    this.callBusy = true;
+    const ep = this.epoch;
+    const c = CALLS[who];
+    haptic([180, 90, 180]);
+    const action = await this.ui.incomingCall({ name: c.name, letter: c.letter, color: c.color, attempt });
+    if (action === 'cleared' || ep !== this.epoch) return;
+    const where = SETS[this.setId].title;
+    try {
+      if (action === 'answer' && this.phase === 'play') await this.answerCall(who, where);
+      else if (action === 'answer' || action === 'speaker') await this.speakerCall(who, where);
+      else this.missedCall(who, attempt, action);
+    } finally {
+      this.callBusy = false;
+    }
+  }
+
+  private async answerCall(who: CallerId, where: string) {
+    const c = CALLS[who];
+    const ep = this.epoch;
+    this.phase = 'stop';
+    this.ui.hidePrompt();
+    this.ui.coach(null);
+    this.hideGuides();
+    this.vel.set(0, 0, 0);
+    this.autoTarget = null;
+    this.tapTarget = null;
+    this.pendingStop = null;
+    const at = this.louise.root.position.clone();
+    this.louise.setState('phone');
+    this.cam.pushSpec = { dist: 3.8, height: 2.3, yaw: 0.35 };
+    this.cam.focus = at.clone();
+    void tweens.to(0.6, (k) => (this.cam.push = k), easeInOutCubic);
+    this.dogs.stare(at);
+    const res = await this.minis.run({ type: 'phone', title: c.name, caller: { letter: c.letter, color: c.color }, lines: c.answer(where), choices: c.choices }, () => {});
+    if (ep !== this.epoch) return;
+    this.audio.chime();
+    this.confetti.burst(at.clone().setY(1.5), 30, 3);
+    this.addHearts(2 + res.hearts, at.clone().setY(1.5));
+    if (who === 'mom') {
+      await this.ui.dialog([{ who: 'louise', text: 'Nothing nothing. Classic Ma. …Love her so much.' }]);
+      if (ep !== this.epoch) return;
+      this.meterNudge(-8, 'stood still for Mom');
+    } else {
+      this.meterNudge(-5, 'stood still for Nina');
+    }
+    this.dogs.release();
+    void tweens.to(0.5, (k) => (this.cam.push = 1 - k), easeInOutCubic);
+    this.cam.focus = null;
+    this.louise.setState('idle');
+    this.still = 0;
+    this.lastProgress = this.t;
+    this.markCall(who);
+    if (this.phase === 'stop') this.phase = 'play';
+  }
+
+  private async speakerCall(who: CallerId, where: string) {
+    const c = CALLS[who];
+    this.ui.toast(`${c.name} is on speaker — keep moving!`, 'good');
+    const ep = this.epoch;
+    const ok = await this.ui.speakerCall(c.name, c.color, c.speaker(where));
+    if (!ok || ep !== this.epoch) return;
+    this.meterNudge(10, 'walk-and-talk');
+    this.addHearts(2, this.louise.root.position.clone().setY(1.6));
+    this.ui.toast(who === 'mom' ? 'Talked to Mom without stopping. She never noticed. (She noticed.)' : 'Laps around the kitchen with Nina on speaker: complete.', 'good');
+    this.markCall(who);
+  }
+
+  private missedCall(who: CallerId, attempt: number, action: 'decline' | 'missed') {
+    const c = CALLS[who];
+    if (who === 'mom' && attempt < 2) {
+      this.ui.toast(action === 'missed' ? 'Missed call: Mom' : 'Declined Mom… she’s calling back.', 'warn');
+      this.pendingCall = { who, delay: 5, attempt: attempt + 1 };
+      return;
+    }
+    c.missedTexts.forEach((t, i) => setTimeout(() => this.ui.toast(`${c.name}: “${t}”`, i ? '' : 'warn'), 600 + i * 1000));
+    if (who === 'mom') {
+      setTimeout(() => {
+        this.meterNudge(-8, 'Mom guilt');
+        this.ui.toast(`${attempt} missed calls from Mom. She was just calling.`, 'warn');
+      }, 600 + c.missedTexts.length * 1000);
+    }
+    this.markCall(who);
+  }
+
+  private nextStop(): StopDef | null {
+    if (!this.set) return null;
+    const left = this.set.stops.filter((s) => !s.optional && !this.stopsDone.has(s.id));
+    return left[0] ?? null;
+  }
+
+  private refreshObjectives() {
+    if (!this.set) return;
+    const next = this.nextStop();
+    const items = this.set.stops.map((s) => ({ label: s.label, done: this.stopsDone.has(s.id), next: s === next, optional: s.optional }));
+    const extra = this.set.dogBeds ? 'Herd Mochi & Leo to their beds' : this.requiredLeft() === 0 && this.set.exit ? this.set.exit.label : undefined;
+    this.ui.setObjectives(items, extra);
+  }
+
+  private addHearts(n: number, at: THREE.Vector3) {
+    for (let i = 0; i < n; i++) {
+      setTimeout(() => {
+        this.save.hearts++;
+        this.ui.setHearts(this.save.hearts, true);
+        this.audio.heart(i);
+        const s = this.project(at);
+        if (s) this.ui.floater('♥', s.x + (Math.random() - 0.5) * 60, s.y, 'heart');
+      }, 120 + i * 110);
+    }
+    writeSave(this.save);
+  }
+
+  /* =================== dog events =================== */
+  private bark(d: Dog, text: string) {
+    this.ui.label(`bark-${d.name}`, text, 'bark', 1.1);
+    if (text !== '!') this.audio.bark(d.name);
+    if (d.mode !== 'basket') d.actor.setState('bark');
+  }
+
+  private focusBriefly(p: THREE.Vector3, sec: number) {
+    if (this.phase !== 'play') return;
+    this.cam.focus = p.clone();
+    this.cam.focusWeight = 1.6;
+    setTimeout(() => {
+      if (this.cam.focus && this.cam.focus.equals(p)) this.cam.focus = null;
+    }, sec * 1000);
+  }
+
+  private onBump(d: Dog, dir: THREE.Vector3) {
+    if (this.phase !== 'play') return;
+    this.vel.addScaledVector(dir, 5);
+    this.louise.setState('stumble');
+    this.louise.pop(0.3);
+    this.cam.shake(0.3);
+    this.audio.bonk();
+    haptic([40, 30, 40]);
+    this.meter = Math.max(1, this.meter - 6);
+    this.ui.toast(`${d.display} bumped her! Still standing.`, 'warn');
+    this.bark(d, '!!');
+    setTimeout(() => this.phase === 'play' && this.louise.setState('idle'), 450);
+  }
+
+  private onCaught(d: Dog, what: string) {
+    this.save.dogs++;
+    this.meter = Math.min(METER_MAX, this.meter + 12);
+    this.ui.meterBoost();
+    this.addHearts(3, d.pos.clone().setY(0.6));
+    this.confetti.burst(d.pos.clone().setY(0.5), 24, 3);
+    this.ui.toast(`Got ${what} back from ${d.display}!`, 'good');
+    this.audio.chime();
+    haptic([20, 30, 20]);
+  }
+
+  private onBedded(d: Dog, all: boolean) {
+    this.addHearts(3, d.pos.clone().setY(0.5));
+    this.confetti.burst(d.pos.clone().setY(0.5), 30, 3);
+    this.audio.chime();
+    this.ui.toast(`${d.display} is in bed. ${all ? '' : 'One more!'}`, 'good');
+    if (all) {
+      this.phase = 'transition';
+      this.save.done.push('downstairs');
+      writeSave(this.save);
+      const ep = this.epoch;
+      setTimeout(async () => {
+        if (ep !== this.epoch) return;
+        await this.ui.dialog([
+          { who: 'narrator', text: 'Both dogs: asleep. Dan: asleep. The whole condo: still.' },
+          { who: 'louise', text: 'Okay. I’m going to sit down now. Just for a sec.' },
+          { who: 'narrator', text: 'She reorganized the shoe rack instead. Goodnight, Louise.' },
+        ]);
+        if (ep !== this.epoch) return;
+        await this.ui.fade(true);
+        if (ep !== this.epoch) return;
+        this.finale();
+      }, 900);
+    }
+  }
+
+  /* =================== fail / pause =================== */
+  private doFail() {
+    this.phase = 'fail';
+    this.hideGuides();
+    this.save.sits++;
+    writeSave(this.save);
+    this.ui.hidePrompt();
+    this.ui.coach(null);
+    this.louise.setState('sit');
+    this.louise.pop(0.45);
+    this.vel.set(0, 0, 0);
+    this.cam.shake(0.4);
+    this.audio.flop();
+    haptic([60, 40, 120]);
+    this.cam.pushSpec = { dist: 4.2, height: 2.2, yaw: 0.3 };
+    void tweens.to(0.6, (k) => (this.cam.push = k * 0.9), easeInOutCubic);
+    this.dogs.stare(this.louise.root.position);
+    const ep = this.epoch;
+    setTimeout(() => {
+      if (ep !== this.epoch) return;
+      this.ui.fail(roast(this.save.sits), 'Tip: keep moving between stops — standing still drains the meter. Finishing stops refills it.', () => {
+        this.ui.clearScreens();
+        this.meter = 72;
+        this.still = 0;
+        this.louise.setState('cheer');
+        this.louise.pop(0.3);
+        this.audio.good();
+        this.dogs.release();
+        void tweens.to(0.5, (k) => (this.cam.push = 0.9 * (1 - k)));
+        setTimeout(() => this.louise.setState('idle'), 600);
+        this.phase = 'play';
+      });
+    }, 1100);
+  }
+
+  private togglePause() {
+    if (this.phase !== 'play' && this.phase !== 'stop') return;
+    this.pausedFrom = this.phase;
+    this.phase = 'paused';
+    this.openSettings(true);
+  }
+
+  private openSettings(inGame: boolean) {
+    this.ui.settings({
+      quality: this.r.setting,
+      muted: this.audio.muted,
+      inGame,
+      onQuality: (q) => {
+        this.r.setQuality(q);
+        this.set?.particles.forEach((p) => (p.pixelScale = this.r.pixelScale));
+      },
+      onMute: () => {
+        const m = this.audio.toggleMute();
+        document.getElementById('btn-mute')!.classList.toggle('muted', m);
+        return m;
+      },
+      onClose: () => {
+        if (inGame) this.phase = this.pausedFrom;
+      },
+      onRestart: inGame
+        ? () => {
+            this.save.stops[this.setId] = [];
+            writeSave(this.save);
+            void this.enterSet(this.setId, true);
+          }
+        : undefined,
+      onDetour: inGame
+        ? () => {
+            this.phase = this.pausedFrom;
+            void this.openDetour();
+          }
+        : undefined,
+    });
+  }
+
+  /* =================== input helpers =================== */
+  private onTap(x: number, y: number) {
+    this.audio.unlock();
+    if (this.phase !== 'play' || this.set?.vehicle) return;
+    const ndc = new THREE.Vector2((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+    this.raycaster.setFromCamera(ndc, this.r.camera);
+    const hit = new THREE.Vector3();
+    if (!this.raycaster.ray.intersectPlane(this.ground, hit)) return;
+    clampBounds(hit, this.set!.bounds);
+    this.tapTarget = hit;
+    this.tap.show(hit);
+    this.pendingStop = null;
+    for (const s of this.set!.stops) {
+      if (this.stopsDone.has(s.id)) continue;
+      if (Math.hypot(s.pos[0] - hit.x, s.pos[1] - hit.z) < 1.4) {
+        this.pendingStop = s;
+        this.tapTarget.set(s.pos[0], 0, s.pos[1]);
+      }
+    }
+  }
+
+  private project(p: THREE.Vector3) {
+    const v = p.clone().project(this.r.camera);
+    if (v.z > 1) return null;
+    return { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight, ndc: v };
+  }
+
+  /* =================== frame =================== */
+  private frame(now: number) {
+    requestAnimationFrame((t) => this.frame(t));
+    const raw = Math.min(0.05, (now - this.last) / 1000 || 0.016);
+    this.last = now;
+    let dt = raw;
+    if (this.hitStop > 0) {
+      this.hitStop -= raw;
+      dt = raw * 0.06;
+    }
+    this.t += dt;
+    WIND.uTime.value += raw;
+    tweens.update(dt);
+    if (this.phase === 'paused') {
+      this.input.endFrame();
+      this.r.render(raw);
+      return;
+    }
+    if (this.phase === 'play') this.updatePlay(dt);
+    else if (this.phase === 'stop' || this.phase === 'intro') this.updateScripted(dt);
+    else if (this.phase === 'title') this.updateTitle(dt);
+    else this.louise.speed = damp(this.louise.speed, 0, 8, dt);
+
+    this.louise.update(dt);
+    if (this.set) {
+      const L = this.louise.root.position;
+      this.dogs.update(dt, {
+        louise: L,
+        louiseVel: this.vel,
+        louiseFacing: this.louise.facing,
+        set: this.set,
+        playing: this.phase === 'play',
+        chaosAllowed: this.stopsDone.size > 0 || this.setId !== 'condo',
+        basket: this.set.vehicle ? this.bike.basket : null,
+      });
+      this.updateLeoMarks(dt);
+      if (this.phase === 'play') this.updateCalls(dt);
+      if (this.set.leaves && this.set.vehicle) this.set.leaves.center.set(L.x, 0, L.z);
+      this.set.update(dt, this.t);
+    }
+    if (this.bike.group.visible) {
+      this.bike.group.rotation.y = this.louise.facing;
+      this.bike.wheels.forEach((w) => (w.rotation.x += this.vel.length() * dt * 3.2));
+    }
+    this.markers.forEach((m) => m.update(dt));
+    this.exitMarker?.update(dt);
+    this.confetti.update(dt);
+    this.tap.update(dt);
+
+    this.cam.focusWeight = damp(this.cam.focusWeight, this.cam.focus ? 1 : 0, 3, dt);
+    this.cam.update(raw, this.louise.root.position, this.vel);
+    const e = new THREE.Euler().setFromQuaternion(this.r.camera.quaternion, 'YXZ');
+    VIEW.yaw = e.y;
+    VIEW.pitch = -e.x;
+    this.r.followShadow(this.louise.root.position);
+    this.updateLabels(dt);
+    this.r.render(raw);
+    this.input.endFrame();
+  }
+
+  private updateTitle(dt: number) {
+    this.titleOrbit += dt * 0.08;
+    const a = Math.sin(this.titleOrbit) * 0.5;
+    this.cam.cinePos.set(-1 + Math.sin(a) * 9, 3.6, 5.5 + Math.cos(a) * 3);
+    this.cam.cineLook.set(-1.4, 1.1, -1.2);
+    this.louise.antsy = 0.4 + Math.sin(this.t) * 0.3;
+    if (Math.random() < 0.004) this.louise.pop(0.15);
+  }
+
+  private updateScripted(dt: number) {
+    const L = this.louise.root.position;
+    if (this.autoTarget) {
+      const d = this.tmp.subVectors(this.autoTarget, L).setY(0);
+      const dist = d.length();
+      if (dist < 0.12) {
+        this.autoTarget = null;
+        this.vel.set(0, 0, 0);
+        this.autoResolve?.();
+        this.autoResolve = null;
+      } else {
+        const want = d.multiplyScalar((Math.min(WALK, dist * 4) / dist));
+        this.vel.lerp(want, 1 - Math.exp(-10 * dt));
+        L.addScaledVector(this.vel, dt);
+        this.louise.facing = dampAngle(this.louise.facing, Math.atan2(this.vel.x, this.vel.z), 12, dt);
+        this.louise.setState('walk');
+      }
+    } else {
+      this.vel.multiplyScalar(Math.exp(-10 * dt));
+    }
+    this.louise.speed = this.vel.length() / WALK;
+  }
+
+  private updatePlay(dt: number) {
+    const set = this.set!;
+    const L = this.louise.root.position;
+    const ax = this.input.axis();
+    const yaw = this.cam.spec.yaw;
+    let ix = ax.x * Math.cos(yaw) + ax.y * Math.sin(yaw);
+    let iz = -ax.x * Math.sin(yaw) + ax.y * Math.cos(yaw);
+    let mag = ax.mag;
+    if (mag > 0.1) {
+      this.tapTarget = null;
+      this.pendingStop = null;
+    } else if (this.tapTarget) {
+      const d = this.tmp.subVectors(this.tapTarget, L).setY(0);
+      const dist = d.length();
+      if (dist < 0.3 || (this.pendingStop && dist < 0.9)) {
+        this.tapTarget = null;
+        if (this.pendingStop) void this.runStop(this.pendingStop);
+      } else {
+        ix = d.x / dist;
+        iz = d.z / dist;
+        mag = Math.min(1, dist / 0.6);
+      }
+    }
+    // weighty locomotion: accelerate toward desired velocity, brake harder than we accelerate
+    const bike = !!set.vehicle;
+    const jog = bike || ax.sprint || (!ax.keyboard && mag > 0.92) || (ax.keyboard && this.meter > 70) || (this.tapTarget !== null && this.meter > 70);
+    const maxV = (jog ? JOG : WALK) * (bike ? 1.45 : 1);
+    const want = this.tmp.set(ix, 0, iz).multiplyScalar(maxV * mag);
+    const cur = this.vel.length();
+    if (cur > 1 && want.lengthSq() > 0.01) {
+      const turn = Math.abs(Math.atan2(this.vel.x * want.z - this.vel.z * want.x, this.vel.x * want.x + this.vel.z * want.z));
+      if (turn > 2) want.multiplyScalar(0.35);
+    }
+    const diff = want.sub(this.vel);
+    const rate = want.lengthSq() + 0.01 > this.vel.lengthSq() ? ACCEL * (bike ? 0.55 : 1) : DECEL * (bike ? 0.4 : 1);
+    const step = Math.min(diff.length(), rate * dt);
+    if (diff.lengthSq() > 1e-6) this.vel.addScaledVector(diff.normalize(), step);
+    L.addScaledVector(this.vel, dt);
+    resolveCircle(L, 0.3, set.colliders, this.vel);
+    clampBounds(L, set.bounds, this.vel);
+    for (const d of this.dogs.dogs) {
+      if (!d.actor.root.visible || d.mode === 'basket' || d.mode === 'bedded' || d.mode === 'spot') continue;
+      separate(L, d.pos, 0.55, d.mode === 'block' ? 0.7 : 0.15);
+    }
+    const speed = this.vel.length();
+    if (speed > 0.15) this.louise.facing = dampAngle(this.louise.facing, Math.atan2(this.vel.x, this.vel.z), bike ? 5 : 11, dt);
+    this.louise.speed = speed / WALK;
+    if (this.louise.state !== 'stumble') {
+      if (bike) this.louise.setState('ride');
+      else this.louise.setState(speed < 0.2 ? 'idle' : speed > 3.9 ? 'run' : 'walk');
+    }
+    this.movedDist += speed * dt;
+
+    // restless meter: the core tension
+    const moving = speed > 0.5;
+    if (moving) {
+      this.still = 0;
+      if (this.meter < PASSIVE_CAP) this.meter = Math.min(PASSIVE_CAP, this.meter + (jog ? 2.4 : 1.5) * dt);
+    } else {
+      this.still += dt;
+      const grace = 0.6;
+      if (this.still > grace) {
+        const tutorialEase = this.setId === 'condo' && this.stopsDone.size === 0 ? 0.45 : 1;
+        this.meter -= (bike ? 9 : 13) * tutorialEase * dt * Math.min(1, (this.still - grace) * 2);
+      }
+    }
+    this.louise.antsy = clamp(this.still / 2.5 + (1 - this.meter / 100) * 0.6, 0, 1);
+    const level: 0 | 1 | 2 = this.meter < 15 ? 2 : this.meter < 35 ? 1 : 0;
+    this.ui.setMeter(this.meter, level);
+    if (level > 0) {
+      this.heartbeatT -= dt;
+      if (this.heartbeatT <= 0) {
+        this.heartbeatT = level === 2 ? 0.5 : 0.9;
+        this.audio.heartbeat();
+        if (level === 2) haptic(15);
+      }
+    }
+    if (this.meter <= 0) {
+      this.meter = 0;
+      this.doFail();
+      return;
     }
 
-    this.ctx.restore();
+    // stops: proximity prompt + camera framing
+    let near: StopDef | null = null;
+    let nearD = 1e9;
+    for (const s of set.stops) {
+      if (this.stopsDone.has(s.id)) continue;
+      const d = Math.hypot(s.pos[0] - L.x, s.pos[1] - L.z);
+      const m = this.markers.get(s.id)!;
+      m.state = d < (s.radius ?? 1.35) ? 'near' : 'idle';
+      if (d < nearD) {
+        nearD = d;
+        near = s;
+      }
+    }
+    if (near && nearD < (near.radius ?? 1.35)) {
+      const target = near;
+      this.ui.showPrompt(near.verb, () => void this.runStop(target));
+      if (this.coachStep === 2) this.ui.coach(this.input.touch ? 'Tap the big button to start!' : 'Press <b>E</b> (or click the button) to start!');
+    } else {
+      this.ui.hidePrompt();
+    }
+    if (near && nearD < 5 && !set.vehicle) this.cam.focus = new THREE.Vector3(near.pos[0], 0, near.pos[1]);
+    else if (this.cam.focusWeight < 1.2) this.cam.focus = null;
+
+    // exit
+    if (set.exit) {
+      const d = Math.hypot(set.exit.x - L.x, set.exit.z - L.z);
+      if (d > 2) this.exitArmed = true;
+      if (d < 1.2 && this.exitArmed) {
+        if (this.requiredLeft() === 0) void this.leaveSet();
+        else {
+          this.exitArmed = false;
+          const n = this.requiredLeft();
+          this.ui.toast(`${n} stop${n > 1 ? 's' : ''} left here — leaving early is fine (demo).`, 'warn');
+          void this.openDetour(true);
+        }
+      }
+    }
+
+    // trail weave gates
+    set.gates.forEach((g, i) => {
+      if (this.gatesHit.has(i)) return;
+      if (Math.abs(L.z - g.z) < 0.7 && Math.abs(L.x - g.x) < g.w / 2) {
+        this.gatesHit.add(i);
+        this.meter = Math.min(METER_MAX, this.meter + 9);
+        this.ui.meterBoost();
+        this.audio.good();
+        haptic(15);
+        this.addHearts(1, new THREE.Vector3(g.x, 1.8, g.z));
+        if (g.mesh) {
+          const m = g.mesh;
+          void tweens.to(0.4, (k) => m.scale.setScalar(Math.max(0.001, 1 + k * 0.6 - k * k * 1.6)));
+        }
+      }
+    });
+
+    // tutorial coach
+    if (this.coachStep === 1) {
+      this.ui.coach(this.input.touch ? '<b>Drag</b> on the left side to walk — or <b>tap</b> anywhere to go there.' : '<b>Walk</b> with WASD or the arrow keys — or click to go there.');
+      if (this.movedDist > 1.5) {
+        this.coachStep = 2;
+        this.ui.coach('Head to the glowing <b>bed</b> — rule one: make it.');
+      }
+    }
+
+    // breadcrumbs + edge arrow toward the next objective
+    const nxt = this.nextStop();
+    const goal = nxt ? new THREE.Vector3(nxt.pos[0], 0, nxt.pos[1]) : set.exit && this.requiredLeft() === 0 ? new THREE.Vector3(set.exit.x, 0, set.exit.z) : null;
+    const lost = this.t - this.lastProgress > 11 && !set.dogBeds;
+    this.breadcrumbs.forEach((b, i) => {
+      const mat = b.material as THREE.MeshBasicMaterial;
+      if (goal && lost) {
+        const k = (i + 1) / (this.breadcrumbs.length + 1);
+        b.position.lerpVectors(L, goal, k).setY(0.03);
+        const wave = 0.5 + 0.5 * Math.sin(this.t * 5 - i * 0.9);
+        mat.opacity = damp(mat.opacity, 0.35 + wave * 0.5, 6, dt);
+        b.scale.setScalar(0.8 + wave * 0.6);
+      } else mat.opacity = damp(mat.opacity, 0, 6, dt);
+    });
+    if (goal) {
+      const s = this.project(goal.clone().setY(1));
+      const off = !s || Math.abs(s.ndc.x) > 0.92 || Math.abs(s.ndc.y) > 0.86;
+      if (off) {
+        const v = goal.clone().project(this.r.camera);
+        let nx = v.x;
+        let ny = v.y;
+        if (v.z > 1) {
+          nx = -nx;
+          ny = -ny;
+        }
+        const ang = Math.atan2(-ny, nx);
+        const ex = window.innerWidth / 2 + Math.cos(ang) * (window.innerWidth / 2 - 34);
+        const ey = window.innerHeight / 2 + Math.sin(ang) * (window.innerHeight / 2 - 60);
+        this.ui.edgeArrow(ex, clamp(ey, 130, window.innerHeight - 60), ang, true);
+      } else this.ui.edgeArrow(0, 0, 0, false);
+    } else this.ui.edgeArrow(0, 0, 0, false);
   }
 
-  destroy() {
-    cancelAnimationFrame(this.animId);
+  private updateLabels(dt: number) {
+    this.ui.tickLabels(dt);
+    if (!this.set) return;
+    const L = this.louise.root.position;
+    const showWorld = this.phase === 'play';
+    for (const s of this.set.stops) {
+      if (this.stopsDone.has(s.id)) continue;
+      const p = this.project(new THREE.Vector3(s.pos[0], s.poseAt ? 2.75 : 2.55, s.pos[1]));
+      const d = Math.hypot(s.pos[0] - L.x, s.pos[1] - L.z);
+      if (p) this.ui.placeLabel(`stop-${s.id}`, p.x, p.y, showWorld && d < 9, clamp(1.4 - d / 9, 0.2, 1));
+    }
+    if (this.set.exit && this.exitMarker && this.exitMarker.state !== 'hidden') {
+      const p = this.project(new THREE.Vector3(this.set.exit.x, 2.8, this.set.exit.z));
+      if (p) this.ui.placeLabel('exit', p.x, p.y, showWorld, 1);
+    }
+    for (const d of this.dogs.dogs) {
+      const p = this.project(d.pos.clone().setY(d.pos.y + 0.75));
+      if (p) this.ui.placeLabel(`bark-${d.name}`, p.x, p.y, true, 1);
+    }
   }
+}
+
+function spriteTint(k: LightKit) {
+  const c = new THREE.Color('#ffffff').lerp(new THREE.Color(k.sky), 0.22);
+  const b = clamp(0.5 + k.hemi * 0.42, 0.62, 1);
+  return c.multiplyScalar(b);
 }

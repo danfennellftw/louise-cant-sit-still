@@ -1,0 +1,604 @@
+import type { Line, Speaker } from '../world/types';
+import type { Audio } from '../engine/audio';
+import type { QualitySetting } from '../engine/quality';
+import { assetUrl } from '../engine/assets';
+
+const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+
+export const PORTRAIT: Partial<Record<Speaker, string>> = {
+  louise: 'portraits/louise.webp',
+  dan: 'portraits/dan.webp',
+  mochi: 'portraits/mochi.webp',
+  leo: 'portraits/leo.webp',
+};
+const NAMES: Record<Speaker, string> = { louise: 'Louise', dan: 'Dan', nina: 'Nina', mom: 'Mom', mochi: 'Mochi', leo: 'Leo', narrator: 'Narrator', npc: '' };
+const NAME_COLORS: Partial<Record<Speaker, string>> = { louise: '#ff6f59', dan: '#3d4a6a', nina: '#b48cff', mom: '#e86a8f', mochi: '#c9a06a', leo: '#8a5a2a', narrator: '#2b1d2e', npc: '#4fb89a' };
+
+export function esc(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+export function portraitHtml(who: Speaker, cls = 'dlg-portrait') {
+  const src = PORTRAIT[who];
+  if (src) return `<img class="${cls}" src="${assetUrl(src)}" alt="${NAMES[who]}" />`;
+  const letter = who === 'nina' ? 'N' : who === 'mom' ? 'M' : who === 'npc' ? '☺' : '✦';
+  return `<div class="${cls} narrator">${letter}</div>`;
+}
+
+interface Label {
+  el: HTMLElement;
+  life: number;
+}
+
+/** DOM-side presentation layer. Game logic calls in; nothing here owns state. */
+export class UI {
+  readonly hud = $('hud');
+  private meterFill = $('meter-fill');
+  private meterGhost = $('meter-ghost');
+  private meterCard = $('meter-card');
+  private meterBar = this.meterFill.parentElement!;
+  private heartsEl = $('hearts');
+  private heartsWrap = $('hearts-wrap');
+  private chip = $('chapter-chip');
+  private objective = $('objective');
+  private prompt = $<HTMLButtonElement>('prompt');
+  private coachEl = $('coach');
+  private toasts = $('toasts');
+  private vignette = $('vignette');
+  private labelsEl = $('labels');
+  private edge = $('edge-arrow');
+  private dialogEl = $('dialog');
+  readonly screens = $('screens');
+  private fadeEl = $('fade');
+  private promptHandler: (() => void) | null = null;
+  private lastMeter = 100;
+  private labels = new Map<string, Label>();
+  dialogOpen = false;
+
+  constructor(private audio: Audio) {
+    this.prompt.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.promptHandler?.();
+    });
+  }
+
+  /* ---------- HUD ---------- */
+  private detourBtn = $('btn-detour');
+  showHud(v: boolean) {
+    this.hud.classList.toggle('hidden', !v);
+    this.detourBtn.classList.toggle('hidden', !v);
+  }
+
+  /** Pulse the demo Detour pill (e.g. when she tries to leave with stops left). */
+  nudgeDetour() {
+    this.detourBtn.classList.remove('nudge');
+    void this.detourBtn.offsetWidth;
+    this.detourBtn.classList.add('nudge');
+  }
+
+  hideDetourPill(v: boolean) {
+    this.detourBtn.style.visibility = v ? 'hidden' : '';
+  }
+
+  setMeter(pct: number, level: 0 | 1 | 2) {
+    const p = Math.max(0, Math.min(100, pct));
+    this.meterFill.style.width = `${p}%`;
+    // the ghost bar trails behind via its CSS transition, so drops read as a visible chunk lost
+    if (Math.abs(p - this.lastMeter) > 0.2) this.meterGhost.style.width = `${p}%`;
+    this.lastMeter = p;
+    this.meterBar.classList.toggle('low', level > 0);
+    this.meterCard.classList.toggle('shake', level === 2);
+    this.vignette.className = level === 2 ? 'crit' : level === 1 ? 'warn' : '';
+  }
+
+  meterBoost() {
+    this.meterCard.classList.remove('bump');
+    void this.meterCard.offsetWidth;
+    this.meterCard.classList.add('bump');
+    this.meterBar.classList.add('glow');
+    setTimeout(() => this.meterBar.classList.remove('glow'), 700);
+  }
+
+  setHearts(n: number, tick = false) {
+    this.heartsEl.textContent = String(n);
+    if (tick) {
+      this.heartsWrap.classList.remove('tick');
+      void this.heartsWrap.offsetWidth;
+      this.heartsWrap.classList.add('tick');
+    }
+  }
+
+  setChapter(time: string, place: string) {
+    (this.chip.querySelector('.time') as HTMLElement).textContent = time;
+    (this.chip.querySelector('.place') as HTMLElement).textContent = place;
+  }
+
+  setObjectives(items: { label: string; done: boolean; next: boolean; optional?: boolean }[], extra?: string) {
+    this.objective.innerHTML =
+      items
+        .map((o) => `<div class="obj ${o.done ? 'done' : ''} ${o.next && !o.done ? 'next' : ''} ${o.optional ? 'optional' : ''}"><i></i>${esc(o.label)}${o.optional ? ' (bonus)' : ''}</div>`)
+        .join('') + (extra ? `<div class="obj next"><i></i>${esc(extra)}</div>` : '');
+  }
+
+  showPrompt(label: string, onPress: () => void) {
+    this.promptHandler = onPress;
+    const key = matchMedia('(hover: hover)').matches ? '<kbd>E</kbd>' : '';
+    const html = `${key}${esc(label)}`;
+    if (this.prompt.classList.contains('hidden') || this.prompt.innerHTML !== html) {
+      this.prompt.innerHTML = html;
+      this.prompt.classList.remove('hidden');
+    }
+  }
+
+  hidePrompt() {
+    this.promptHandler = null;
+    this.prompt.classList.add('hidden');
+  }
+
+  get promptVisible() {
+    return !this.prompt.classList.contains('hidden');
+  }
+
+  pressPrompt() {
+    this.promptHandler?.();
+  }
+
+  coach(html: string | null, at: 'center' | 'meter' = 'center') {
+    if (!html) {
+      this.coachEl.classList.add('hidden');
+      return;
+    }
+    this.coachEl.innerHTML = html;
+    this.coachEl.className = at === 'meter' ? 'at-meter' : '';
+  }
+
+  toast(text: string, kind: '' | 'dog' | 'good' | 'warn' = '') {
+    const el = document.createElement('div');
+    el.className = `toast ${kind}`;
+    el.textContent = text;
+    this.toasts.appendChild(el);
+    while (this.toasts.children.length > 3) this.toasts.firstElementChild?.remove();
+    setTimeout(() => el.remove(), 2900);
+  }
+
+  edgeArrow(x: number, y: number, angle: number, on: boolean) {
+    this.edge.classList.toggle('on', on);
+    if (on) this.edge.style.transform = `translate(${x}px, ${y}px) rotate(${angle}rad)`;
+  }
+
+  /* ---------- world labels & floaters ---------- */
+  label(id: string, text: string, cls = '', life = Infinity) {
+    let l = this.labels.get(id);
+    if (!l) {
+      const el = document.createElement('div');
+      el.className = `wlabel ${cls}`;
+      this.labelsEl.appendChild(el);
+      l = { el, life };
+      this.labels.set(id, l);
+    }
+    l.el.textContent = text;
+    l.life = life;
+    return l.el;
+  }
+
+  placeLabel(id: string, x: number, y: number, visible: boolean, opacity = 1) {
+    const l = this.labels.get(id);
+    if (!l) return;
+    l.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+    l.el.style.opacity = visible ? String(opacity) : '0';
+  }
+
+  dropLabel(id: string) {
+    this.labels.get(id)?.el.remove();
+    this.labels.delete(id);
+  }
+
+  tickLabels(dt: number) {
+    for (const [id, l] of this.labels) {
+      if (l.life === Infinity) continue;
+      l.life -= dt;
+      if (l.life <= 0) this.dropLabel(id);
+    }
+  }
+
+  clearLabels() {
+    for (const id of [...this.labels.keys()]) this.dropLabel(id);
+  }
+
+  floater(text: string, x: number, y: number, cls = '') {
+    const el = document.createElement('div');
+    el.className = `floater ${cls}`;
+    el.textContent = text;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    this.labelsEl.appendChild(el);
+    setTimeout(() => el.remove(), 1400);
+  }
+
+  /* ---------- dialog ---------- */
+  private dialogCleanup: (() => void) | null = null;
+  private dialogRun = 0;
+
+  async dialog(lines: Line[]) {
+    if (!lines.length) return;
+    const run = ++this.dialogRun;
+    this.dialogOpen = true;
+    this.hidePrompt();
+    for (const line of lines) {
+      await this.showLine(line);
+      if (run !== this.dialogRun) return new Promise<void>(() => {});
+    }
+    this.dialogEl.classList.add('hidden');
+    this.dialogOpen = false;
+  }
+
+  /** Drop any open dialog without resolving it (the flow that opened it is being abandoned). */
+  abortDialog() {
+    this.dialogRun++;
+    this.dialogCleanup?.();
+    this.dialogCleanup = null;
+    this.dialogEl.classList.add('hidden');
+    this.dialogOpen = false;
+  }
+
+  private showLine(line: Line) {
+    return new Promise<void>((resolve) => {
+      const name = line.name ?? NAMES[line.who];
+      this.dialogEl.innerHTML = `${portraitHtml(line.who)}<div class="dlg-card">${name ? `<span class="dlg-name" style="background:${NAME_COLORS[line.who] ?? '#ff6f59'}">${esc(name)}</span>` : ''}<div class="dlg-text"></div><span class="dlg-next"></span></div>`;
+      this.dialogEl.classList.remove('hidden');
+      const textEl = this.dialogEl.querySelector('.dlg-text') as HTMLElement;
+      let i = 0;
+      let done = false;
+      const full = line.text;
+      const iv = window.setInterval(() => {
+        i += 2;
+        textEl.textContent = full.slice(0, i);
+        if (i % 6 === 0) this.audio.tick();
+        if (i >= full.length) finishType();
+      }, 22);
+      const finishType = () => {
+        window.clearInterval(iv);
+        textEl.textContent = full;
+        done = true;
+      };
+      const advance = (e?: Event) => {
+        e?.preventDefault();
+        if (!done) {
+          finishType();
+          return;
+        }
+        cleanup();
+        this.audio.click();
+        resolve();
+      };
+      const key = (e: KeyboardEvent) => {
+        if (['e', ' ', 'enter'].includes(e.key.toLowerCase())) advance(e);
+      };
+      const cleanup = () => {
+        window.clearInterval(iv);
+        clearTimeout(arm);
+        this.dialogEl.removeEventListener('pointerdown', advance);
+        window.removeEventListener('keydown', key);
+        this.dialogCleanup = null;
+      };
+      this.dialogCleanup = cleanup;
+      const arm = setTimeout(() => {
+        this.dialogEl.addEventListener('pointerdown', advance);
+        window.addEventListener('keydown', key);
+      }, 120);
+    });
+  }
+
+  /* ---------- phone: incoming call card + speakerphone captions ---------- */
+  /** Resolves with what the player did; unanswered calls time out as 'missed'. */
+  incomingCall(c: { name: string; letter: string; color: string; attempt: number }, ms = 12000) {
+    this.audio.ring();
+    const el = document.createElement('div');
+    el.className = 'call-card';
+    el.innerHTML = `
+      <div class="call-av" style="background:${c.color}">${esc(c.letter)}</div>
+      <div class="call-who"><b>${esc(c.name)}${c.attempt > 1 ? ` <span>(${c.attempt})</span>` : ''}</b><small>${c.attempt > 1 ? 'calling again…' : 'incoming call…'}</small></div>
+      <div class="call-btns">
+        <button class="call-btn decline" data-a="decline" aria-label="Decline"><svg viewBox="0 0 24 24"><path d="M12 9c-1.6 0-3.2.3-4.6.8v3.1c0 .4-.2.7-.6.9-1 .5-1.9 1.1-2.7 1.8-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3L.3 13.2c-.2-.2-.3-.4-.3-.7s.1-.5.3-.7C3.4 8.9 7.5 7 12 7s8.6 1.9 11.7 4.8c.2.2.3.4.3.7s-.1.5-.3.7l-2.4 2.4c-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3-.8-.7-1.7-1.3-2.7-1.8-.3-.2-.6-.5-.6-.9V9.8C15.2 9.3 13.6 9 12 9Z"/></svg><span>Decline</span></button>
+        <button class="call-btn speaker" data-a="speaker" aria-label="Speaker"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4Zm-2.5-8.8v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6Z"/></svg><span>Speaker</span></button>
+        <button class="call-btn answer" data-a="answer" aria-label="Answer"><svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2Z"/></svg><span>Answer</span></button>
+      </div>
+      <div class="call-keys">Enter answer · S speaker · X decline</div>`;
+    document.body.appendChild(el);
+    const ring = window.setInterval(() => this.audio.ring(), 2400);
+    return new Promise<'answer' | 'speaker' | 'decline' | 'missed' | 'cleared'>((resolve) => {
+      let done = false;
+      const finish = (a: 'answer' | 'speaker' | 'decline' | 'missed' | 'cleared') => {
+        if (done) return;
+        done = true;
+        this.callClears.delete(clear);
+        window.clearInterval(ring);
+        window.clearTimeout(timeout);
+        window.removeEventListener('keydown', key, true);
+        el.classList.add('out');
+        setTimeout(() => el.remove(), 300);
+        resolve(a);
+      };
+      const clear = () => finish('cleared');
+      this.callClears.add(clear);
+      const timeout = window.setTimeout(() => finish('missed'), ms);
+      const key = (e: KeyboardEvent) => {
+        const k = e.key.toLowerCase();
+        const a = k === 'enter' ? 'answer' : k === 's' ? 'speaker' : k === 'x' ? 'decline' : null;
+        if (!a) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        finish(a);
+      };
+      window.addEventListener('keydown', key, true);
+      const stop = (e: Event) => e.stopPropagation();
+      ['pointerdown', 'pointerup', 'touchstart', 'mousedown'].forEach((t) => el.addEventListener(t, stop));
+      el.querySelectorAll<HTMLButtonElement>('.call-btn').forEach((b) =>
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          finish(b.dataset.a as 'answer' | 'speaker' | 'decline');
+        })
+      );
+    });
+  }
+
+  private callClears = new Set<() => void>();
+  private captionRun = 0;
+
+  /** Hang up everything phone-shaped: ringing cards and speaker captions. */
+  clearCalls() {
+    [...this.callClears].forEach((f) => f());
+    this.captionRun++;
+    document.querySelectorAll('.call-caption').forEach((e) => e.remove());
+  }
+
+  /** Speakerphone: captions tick along at the top while she keeps moving. Resolves false if hung up. */
+  async speakerCall(name: string, color: string, lines: Line[]) {
+    const run = ++this.captionRun;
+    const el = document.createElement('div');
+    el.className = 'call-caption';
+    el.innerHTML = `<div class="cc-head"><span class="cc-dot" style="background:${color}"></span>On speaker · ${esc(name)}<small>00:00</small></div><div class="cc-line"></div>`;
+    document.body.appendChild(el);
+    const line = el.querySelector('.cc-line') as HTMLElement;
+    const clock = el.querySelector('small') as HTMLElement;
+    const start = performance.now();
+    const iv = window.setInterval(() => {
+      const s = Math.floor((performance.now() - start) / 1000);
+      clock.textContent = `00:${String(s).padStart(2, '0')}`;
+    }, 500);
+    for (const l of lines) {
+      line.innerHTML = `<b style="color:${l.who === 'louise' ? '#ff9e7a' : color}">${esc(NAMES[l.who] || l.name || '')}</b> ${esc(l.text)}${l.sub ? `<small>${esc(l.sub)}</small>` : ''}`;
+      line.classList.remove('in');
+      void line.offsetWidth;
+      line.classList.add('in');
+      this.audio.pop();
+      await new Promise((r) => setTimeout(r, 1500 + l.text.length * 38));
+      if (run !== this.captionRun) {
+        window.clearInterval(iv);
+        el.remove();
+        return false;
+      }
+    }
+    window.clearInterval(iv);
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 350);
+    return true;
+  }
+
+  /* ---------- transitions ---------- */
+  /** Called if the fade has covered the screen for too long (a transition hung). */
+  onFadeStuck?: () => void;
+  private fadeWatch = 0;
+
+  fade(on: boolean, loading = false) {
+    this.fadeEl.classList.toggle('loading', loading);
+    this.fadeEl.classList.remove('boot');
+    this.fadeEl.classList.toggle('on', on);
+    clearTimeout(this.fadeWatch);
+    if (on) this.fadeWatch = window.setTimeout(() => this.onFadeStuck?.(), 15000);
+    return new Promise<void>((r) => setTimeout(r, 470));
+  }
+
+  get fadeOn() {
+    return this.fadeEl.classList.contains('on');
+  }
+
+  /** Recoverable error card; sits above the fade so it can never be hidden by it. */
+  recover(title: string, body: string, actions: { label: string; primary?: boolean; run: () => void }[]) {
+    clearTimeout(this.fadeWatch);
+    this.fadeEl.classList.remove('on', 'loading', 'boot');
+    document.querySelector('.recover-layer')?.remove();
+    const el = document.createElement('div');
+    el.className = 'recover-layer';
+    el.innerHTML = `<div class="card recover"><h2>${esc(title)}</h2><p>${esc(body)}</p><div class="recover-actions"></div></div>`;
+    const row = el.querySelector('.recover-actions')!;
+    actions.forEach((a) => {
+      const b = document.createElement('button');
+      b.className = a.primary ? 'cta' : 'cta secondary';
+      b.textContent = a.label;
+      b.onclick = () => {
+        el.remove();
+        a.run();
+      };
+      row.appendChild(b);
+    });
+    document.body.appendChild(el);
+  }
+
+  clearRecover() {
+    document.querySelector('.recover-layer')?.remove();
+  }
+
+  clearScreens() {
+    this.screens.innerHTML = '';
+  }
+
+  /* ---------- screens ---------- */
+  title(opts: { hasSave: boolean; onPlay: () => void; onContinue: () => void; onSettings: () => void; onDetour: () => void }) {
+    const l2 = "can't sit still".split('').map((c, i) => `<span style="animation-delay:${i * 0.07}s">${c === ' ' ? '&nbsp;' : esc(c)}</span>`).join('');
+    const cast = (['louise', 'dan', 'mochi', 'leo'] as Speaker[])
+      .map((w, i) => `<figure style="animation-delay:${0.3 + i * 0.1}s">${portraitHtml(w, '')}<figcaption>${NAMES[w]}</figcaption></figure>`)
+      .join('');
+    this.screens.innerHTML = `
+      <div class="title-screen">
+        <div class="logo">
+          <div class="l1">Louise</div>
+          <div class="l2">${l2}</div>
+          <div class="tag">One restless day in Orange County · a gift from Dan</div>
+        </div>
+        <div class="cast">${cast}</div>
+        <button class="cta" id="t-play">${opts.hasSave ? 'Continue the day' : 'Play'}</button>
+        ${opts.hasSave ? '<button class="cta secondary" id="t-new">Start a fresh day</button>' : ''}
+        <button class="cta secondary t-detour" id="t-detour">Detour the day <span class="dt-badge">Demo</span></button>
+        <div class="title-foot"><button id="t-settings">Settings</button><span>WASD / drag · E / tap</span></div>
+      </div>`;
+    $('t-play').onclick = () => (opts.hasSave ? opts.onContinue() : opts.onPlay());
+    const n = document.getElementById('t-new');
+    if (n) n.onclick = () => opts.onPlay();
+    $('t-settings').onclick = () => opts.onSettings();
+    $('t-detour').onclick = () => opts.onDetour();
+  }
+
+  chapterCard(kicker: string, title: string, sub: string, ms = 2600) {
+    const el = document.createElement('div');
+    el.className = 'chapter';
+    el.innerHTML = `<div class="bar"></div><div class="band"><div class="kicker">${esc(kicker)}</div><h3>${esc(title)}</h3><div class="sub">${esc(sub)}</div></div><div class="bar b"></div>`;
+    this.screens.appendChild(el);
+    return new Promise<void>((r) => {
+      setTimeout(() => {
+        el.classList.add('out');
+        setTimeout(() => {
+          el.remove();
+          r();
+        }, 480);
+      }, ms);
+    });
+  }
+
+  stinger(num: number, title: string, sub: string) {
+    this.audio.stinger();
+    const el = document.createElement('div');
+    el.className = 'stinger';
+    el.innerHTML = `<div><div class="act">Act ${num}</div><h1>${esc(title)}</h1><div class="rule"></div><p style="margin-top:12px">${esc(sub)}</p></div>`;
+    this.screens.appendChild(el);
+    return new Promise<void>((r) => {
+      const done = () => {
+        el.style.transition = 'opacity .4s';
+        el.style.opacity = '0';
+        setTimeout(() => {
+          el.remove();
+          r();
+        }, 400);
+      };
+      const t = setTimeout(done, 2600);
+      el.addEventListener('pointerdown', () => {
+        clearTimeout(t);
+        done();
+      });
+    });
+  }
+
+  fail(roast: string, sub: string, onRetry: () => void) {
+    this.screens.innerHTML = `
+      <div class="screen-dim"><div class="card fail">
+        <h2>Louise sat down.</h2>
+        <p class="roast">“${esc(roast)}”</p>
+        <p>${esc(sub)}</p>
+        <button class="cta" id="f-retry">Get up, Louise!</button>
+      </div></div>`;
+    const btn = $('f-retry');
+    const go = () => {
+      window.removeEventListener('keydown', key);
+      onRetry();
+    };
+    const key = (e: KeyboardEvent) => {
+      if (['e', ' ', 'enter'].includes(e.key.toLowerCase())) go();
+    };
+    setTimeout(() => window.addEventListener('keydown', key), 500);
+    btn.onclick = go;
+  }
+
+  finale(stats: { hearts: number; stops: number; sits: number; dogs: number }, onReplay: () => void) {
+    const share = `Louise finished her whole OC day — ${stats.stops} stops, ${stats.hearts} hearts, sat down ${stats.sits}×. She still won't sit still.`;
+    this.screens.innerHTML = `
+      <div class="screen-dim"><div class="card">
+        <h2>Day complete.</h2>
+        <p>Four gyms, Grit Cycle, brown food, Nina, the trail, the sauna — and the dogs are finally in bed. She’ll be up at 5.</p>
+        <div class="stats"><div><b>${stats.hearts}</b><span>hearts</span></div><div><b>${stats.stops}</b><span>stops</span></div><div><b>${stats.sits}</b><span>sits</span></div></div>
+        <p class="share-line">${esc(share)}</p>
+        <button class="cta" id="w-share">Share</button>
+        <button class="cta secondary" id="w-replay" style="width:100%;color:var(--plum);box-shadow:inset 0 0 0 2px #e6c9b8">Play the day again</button>
+        <p style="margin:14px 0 0;font-size:12px">Made with love, Dan → Louise</p>
+      </div></div>`;
+    $('w-replay').onclick = onReplay;
+    $('w-share').onclick = async () => {
+      const data = { title: "Louise Can't Sit Still", text: share, url: location.href };
+      try {
+        if (navigator.share) await navigator.share(data);
+        else {
+          await navigator.clipboard.writeText(`${share} ${location.href}`);
+          $('w-share').textContent = 'Copied!';
+        }
+      } catch {
+        /* dismissed */
+      }
+    };
+  }
+
+  settings(opts: {
+    quality: QualitySetting;
+    muted: boolean;
+    inGame: boolean;
+    onQuality: (q: QualitySetting) => void;
+    onMute: () => boolean;
+    onClose: () => void;
+    onRestart?: () => void;
+    onMap?: () => void;
+    onDetour?: () => void;
+  }) {
+    const qs: QualitySetting[] = ['auto', 'low', 'medium', 'high'];
+    const el = document.createElement('div');
+    el.className = 'screen-dim';
+    el.innerHTML = `<div class="card">
+        <h2>${opts.inGame ? 'Paused' : 'Settings'}</h2>
+        <p style="margin-bottom:8px">Graphics</p>
+        <div class="row"><div class="seg" id="s-q">${qs.map((q) => `<button data-q="${q}" class="${q === opts.quality ? 'on' : ''}">${q[0].toUpperCase() + q.slice(1)}</button>`).join('')}</div></div>
+        <div class="row"><div class="seg"><button id="s-mute" class="on">${opts.muted ? 'Sound: off' : 'Sound: on'}</button></div></div>
+        <button class="cta" id="s-close">${opts.inGame ? 'Resume' : 'Done'}</button>
+        ${opts.onDetour ? '<button class="cta secondary" id="s-detour" style="width:100%;color:var(--plum);box-shadow:inset 0 0 0 2px #e6c9b8">Detour the day <span class="dt-badge">Demo</span></button>' : ''}
+        ${opts.onMap ? '<button class="cta secondary" id="s-map" style="width:100%;color:var(--plum);box-shadow:inset 0 0 0 2px #e6c9b8">Day map</button>' : ''}
+        ${opts.onRestart ? '<button class="cta secondary" id="s-restart" style="width:100%;color:var(--plum);box-shadow:inset 0 0 0 2px #e6c9b8">Restart this stop</button>' : ''}
+      </div>`;
+    this.screens.appendChild(el);
+    el.querySelectorAll<HTMLButtonElement>('#s-q button').forEach((b) =>
+      b.addEventListener('click', () => {
+        el.querySelectorAll('#s-q button').forEach((x) => x.classList.remove('on'));
+        b.classList.add('on');
+        opts.onQuality(b.dataset.q as QualitySetting);
+      })
+    );
+    const m = el.querySelector('#s-mute') as HTMLButtonElement;
+    m.onclick = () => (m.textContent = opts.onMute() ? 'Sound: off' : 'Sound: on');
+    const close = () => {
+      el.remove();
+      opts.onClose();
+    };
+    (el.querySelector('#s-close') as HTMLElement).onclick = close;
+    const r = el.querySelector('#s-restart') as HTMLElement | null;
+    if (r && opts.onRestart) r.onclick = () => {
+      el.remove();
+      opts.onRestart!();
+    };
+    const dt = el.querySelector('#s-detour') as HTMLElement | null;
+    if (dt && opts.onDetour) dt.onclick = () => {
+      el.remove();
+      opts.onDetour!();
+    };
+    const mp = el.querySelector('#s-map') as HTMLElement | null;
+    if (mp && opts.onMap) mp.onclick = () => {
+      el.remove();
+      opts.onMap!();
+    };
+    return el;
+  }
+}
