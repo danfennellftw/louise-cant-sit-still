@@ -13,7 +13,7 @@ import { rng } from '../../engine/util';
 
 const LOCALS = { tops: ['#f4a6a0', '#9ad0f5', '#fff3c4', '#c9e7c1', '#e8d4b8', '#37474f', '#ffffff', '#b48cff'], bottoms: ['#2a3a5a', '#e7dccb', '#3a3a3a', '#8a6a4a'] };
 
-/* =================== Coffee plaza (find the AI people + Nina call) =================== */
+/* =================== Coffee plaza (Louise finds her AI people) =================== */
 export function buildPlaza(q: QualityLevel): BuiltSet {
   const ctx = new SetCtx(q);
   ctx.dyn.add(skyDome('#8ec9f0', '#e8f3f7', '#d8c3a5'));
@@ -89,23 +89,6 @@ export function buildPlaza(q: QualityLevel): BuiltSet {
           ],
         },
         refill: 30, hearts: 3, color: '#9ad4ff', push: { dist: 5.4, height: 3.2, yaw: 0.35 },
-      },
-      {
-        id: 'nina', label: 'Call Nina', verb: 'Call', pos: [-6.2, 2.4], stand: [-6.2, 2.4], face: 0, pose: 'phone',
-        mini: {
-          type: 'phone', title: 'Nina',
-          lines: [
-            { who: 'louise', text: 'Nina!! Guess where I am now—' },
-            { who: 'nina', text: 'Let me guess. In motion.' },
-            { who: 'louise', text: 'I reorganized a drawer AND found skincare on sale.' },
-            { who: 'nina', text: 'Of course you did. Are you sitting down?' },
-          ],
-          choices: [
-            { label: '“Sitting? Never heard of her.”', reply: [{ who: 'nina', text: 'Love you. Go putter somewhere.' }], hearts: 3 },
-            { label: '“I’m pacing, but emotionally I’m seated.”', reply: [{ who: 'nina', text: 'That’s the stillest you’ve ever been. Proud of you.' }], hearts: 4 },
-          ],
-        },
-        refill: 30, hearts: 3, color: '#ffb3d1', push: { dist: 4.4, height: 2.6, yaw: -0.4 },
       },
     ],
     light: KITS.plaza,

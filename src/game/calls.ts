@@ -65,23 +65,24 @@ export const CALLS: Record<CallerId, CallScript> = {
     name: 'Nina',
     letter: 'N',
     color: '#b48cff',
-    answer: (where) => [
-      { who: 'nina', text: 'Okay, be honest. Are you sitting down right now?' },
-      { who: 'louise', text: `I’m at ${where}. So… no.` },
-      { who: 'nina', text: 'Of course you are. Did you eat? Did you sit? Pick one.' },
-      { who: 'louise', text: 'I ate. Standing up. At a counter. Quickly.' },
-      { who: 'nina', text: 'Growth. Okay — AI meetup later. I’m bringing a friend who also can’t sit still.' },
+    answer: () => [
+      { who: 'nina', text: 'Are you home? Tell me you’re sitting down for once.' },
+      { who: 'louise', text: 'I’m home. Technically. I’ve made the bed and reorganized a cabinet.' },
+      { who: 'nina', text: 'Of course you have. Okay, quick — I have to pick up Hudson and Olivia from school at three.' },
+      { who: 'nina', text: 'Jimmy’s on a work trip all week, so it’s just me on pickup. Every. Single. Day.' },
+      { who: 'louise', text: 'I could ride along! I will absolutely not sit still in the car.' },
+      { who: 'nina', text: 'You’d reorganize my glovebox before we left the pickup line.' },
     ],
     choices: [
-      { label: '“Perfect. We’ll pace together.”', reply: [{ who: 'nina', text: 'A walking meetup. Iconic. See you there.' }], hearts: 3 },
-      { label: '“Call you back, I’m mid-errand!”', reply: [{ who: 'nina', text: 'You never call back. Love you. Go putter.' }], hearts: 2 },
+      { label: '“I’d reorganize your whole car. Lovingly.”', reply: [{ who: 'nina', text: 'Hudson would pay you. Olivia would supervise. Love you.' }], hearts: 3 },
+      { label: '“Tell Jimmy to hurry home.”', reply: [{ who: 'nina', text: 'Telling him you said that. He’s back Friday. Go putter.' }], hearts: 3 },
     ],
-    speaker: (where) => [
-      { who: 'nina', text: 'Why do I hear wind? Are you walking?' },
-      { who: 'louise', text: `Speakerphone! ${where}. Talk fast.` },
-      { who: 'nina', text: 'I always talk fast to you. AI meetup later, okay?' },
-      { who: 'nina', text: 'Love you. Go putter.' },
+    speaker: () => [
+      { who: 'nina', text: 'Why do you sound like you’re doing laps around your kitchen?' },
+      { who: 'louise', text: 'Because I am. You’re on speaker!' },
+      { who: 'nina', text: 'Figures. I’ve got Hudson and Olivia’s school pickup at three — Jimmy’s on his work trip, so it’s all me.' },
+      { who: 'nina', text: 'Call me when you finally sit down. So… never. Love you.' },
     ],
-    missedTexts: ['walk-and-talk later?', '(you won’t, it’s fine, love you)'],
+    missedTexts: ['Jimmy’s on a work trip so I’m on school pickup all week', 'Hudson + Olivia say hi. call me when you sit (never)'],
   },
 };

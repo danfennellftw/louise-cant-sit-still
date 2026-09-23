@@ -30,7 +30,7 @@ export const SETS: Record<SetId, SetMeta> = {
   tjmaxx: { id: 'tjmaxx', title: 'TJ Maxx', place: 'Around town', time: '1:35 PM', short: 'TJ Maxx', map: [140, 136], build: buildTjMaxx },
   marshalls: { id: 'marshalls', title: 'Marshall’s', place: 'Around town', time: '2:15 PM', short: 'Marshall’s', map: [198, 108], build: buildMarshalls },
   mall: { id: 'mall', title: 'The Mall', place: 'Nike · Skincare · Massage', time: '3:00 PM', short: 'Mall', map: [96, 186], build: buildMall },
-  plaza: { id: 'plaza', title: 'Coffee Plaza', place: 'AI meetup · Nina', time: '4:20 PM', short: 'Coffee', map: [168, 254], build: buildPlaza },
+  plaza: { id: 'plaza', title: 'Coffee Plaza', place: 'AI meetup', time: '4:20 PM', short: 'Coffee', map: [168, 254], build: buildPlaza },
   trail: { id: 'trail', title: 'The E-Bike Trail', place: 'RMV → San Juan Capistrano → Dana Point', time: '6:05 PM', short: 'Trail', map: [270, 280], build: buildTrail },
   garage: { id: 'garage', title: 'Garage Sauna', place: 'Home', time: '8:10 PM', short: 'Sauna', map: [226, 210], build: buildGarage },
   night: { id: 'night', title: 'Bedtime', place: 'Home', time: '9:40 PM', short: 'Bed', map: [202, 212], build: (q) => buildCondo(q, true) },
@@ -50,7 +50,7 @@ export const ACTS: Act[] = [
   { num: 1, title: 'Rise & Organize', sub: 'Morning at the condo', sets: ['condo'], ordered: true },
   { num: 2, title: 'The Fitness Circuit', sub: 'Grit Cycle + three gyms in three towns', sets: ['grit', 'shredz', 'crunch', 'eos'], ordered: false },
   { num: 3, title: 'Errand Sprint', sub: 'Groceries, finds & a glow-up', sets: ['grocery', 'tjmaxx', 'marshalls', 'mall'], ordered: false },
-  { num: 4, title: 'Social Hour', sub: 'AI friends, Nina & the golden-hour ride', sets: ['plaza', 'trail'], ordered: true },
+  { num: 4, title: 'Social Hour', sub: 'AI friends & the golden-hour ride', sets: ['plaza', 'trail'], ordered: true },
   { num: 5, title: 'Wind-Down (Allegedly)', sub: 'Sauna, YouTube, dogs downstairs', sets: ['garage', 'night', 'downstairs'], ordered: true },
 ];
 

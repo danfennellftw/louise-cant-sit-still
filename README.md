@@ -46,13 +46,12 @@ Vercel: framework preset **Vite**, build `npm run build`, output `dist`. `vercel
   - hold, including a fidgety version that hops away (massage, sauna)
   - balance (creek bridge, stair climber)
   - dialogue choices (AI meetup, Dan, YouTube pick)
-  - a tap-through phone call with Nina
-- **Incoming calls.** The phone rings mid-day and you pick Answer, Speaker or Decline:
+- **Incoming calls.** The phone rings at home and you pick Answer, Speaker or Decline:
   - **Mom** calls in the condo morning (after your second stop). She speaks Tagalog with English subtitles, plus her signature "Are you there?", "Just calling. Just calling." and "Nothing nothing."
-  - **Nina** calls once while you're out at a gym or errand stop.
+  - **Nina** calls at home in the condo morning, once Mom's call is handled and a third stop is done. She's on school pickup for Hudson and Olivia while Jimmy is away on a work trip.
   - Answer opens the call: +hearts, but a small meter hit for standing still.
   - Speaker plays captions at the top while you keep walking: +10 meter.
-  - Decline: Mom calls straight back. Decline twice and her texts land with a Mom-guilt meter hit.
+  - Decline: Mom calls straight back. Decline twice and her texts land with a Mom-guilt meter hit. Declining Nina gets a text about pickup duty.
 - **Mochi & Leo** follow and wander. They also:
   - steal socks and croissants (chase them down to get the item back)
   - sit in your path for pets
@@ -60,12 +59,12 @@ Vercel: framework preset **Vite**, build `npm run build`, output `dist`. `vercel
   - celebrate completed stops
   - ride in the e-bike basket
   - get herded to their beds in the finale
-- **Day structure:** five acts — Morning condo → Fitness circuit (Grit Cycle Dana Point, Shredz Ladera Ranch, Crunch San Clemente, EOS Fitness Rancho Santa Margarita) → Errands (grocery, TJ Maxx, Marshall's, mall with Nike, skincare and massage) → Social (coffee plaza AI meetup + Nina call, e-bike trail RMV → San Juan Capistrano → Dana Point) → Wind-down (garage sauna between Louise's gray Model Y and Dan's blue Model 3, YouTube in bed with the dogs, dogs downstairs).
+- **Day structure:** five acts — Morning condo → Fitness circuit (Grit Cycle Dana Point, Shredz Ladera Ranch, Crunch San Clemente, EOS Fitness Rancho Santa Margarita) → Errands (grocery, TJ Maxx, Marshall's, mall with Nike, skincare and massage) → Social (coffee plaza AI meetup, e-bike trail RMV → San Juan Capistrano → Dana Point) → Wind-down (garage sauna between Louise's gray Model Y and Dan's blue Model 3, YouTube in bed with the dogs, dogs downstairs).
   - An act stinger plays between acts.
   - A day-map navigator lets you jump to any stop at any time (including later chapters and finished stops, which reset for a replay). The story order is only a suggestion: the next stops glow. The HUD map button travels too.
 - **Detour the day (demo).** A gold **Detour · demo** pill sits in the HUD and works at any moment: mid-stop, mid-minigame, during dialogue, a ringing call or the fail card. The same panel is on the title screen and in the pause menu. It offers:
   - chapter jumps: Rise & Organize, Fitness, Errands, Social, Wind-Down, Night in bed
-  - quick scenes: condo morning, Plan the day (desk), Mochi's accidents, Mom's call, Grit, TJ Maxx + Nina's call, coffee meetup, e-bike trail, garage sauna with the cars, YouTube in bed, and the dogs-downstairs finale
+  - quick scenes: condo morning, Plan the day (desk), Mochi's accidents, Mom's call, Nina's call, Grit, TJ Maxx, coffee meetup, e-bike trail, garage sauna with the cars, YouTube in bed, and the dogs-downstairs finale
   - the full day map (every stop)
 
   Jumping cleanly abandons whatever was in progress: minigames, dialogue, call cards and fades are cleared before the new set loads. Walking into an exit with stops left opens the map instead of blocking you.

@@ -32,8 +32,6 @@ const ACCEL = 15;
 const DECEL = 19;
 const METER_MAX = 100;
 
-/** Sets where Nina's incoming call can land (she calls while Louise is out). */
-const OUT_SETS: SetId[] = ['grit', 'shredz', 'crunch', 'eos', 'grocery', 'tjmaxx', 'marshalls', 'mall'];
 
 const LEO_NAGS = [
   'Dan: “Why does the piano smell like… oh no. LEO.”',
@@ -281,7 +279,6 @@ export class Game {
     this.markPending = null;
     this.leoMarkN = 0;
     this.leoMarkT = set.markSpots ? 32 : 0;
-    if (OUT_SETS.includes(id) && !this.save.calls?.nina && !this.pendingCall) this.pendingCall = { who: 'nina', delay: 14, attempt: 1 };
     if (set.exit) {
       this.exitMarker = new StopMarker('#fff6ec', 0.9, 2.4);
       this.exitMarker.root.position.set(set.exit.x, 0, set.exit.z);
@@ -707,8 +704,7 @@ export class Game {
     this.lastProgress = this.t;
     this.ui.dropLabel(`stop-${stop.id}`);
     if (set.markSpots && this.leoMarkN === 0) this.leoMarkT = Math.min(this.leoMarkT, 7);
-    if (this.setId === 'condo' && !stop.transient && this.stopsDone.size >= 2 && !this.save.calls?.mom && !this.pendingCall && !this.callBusy)
-      this.pendingCall = { who: 'mom', delay: 4, attempt: 1 };
+    this.queueHomeCall();
     this.refreshObjectives();
     this.still = 0;
     this.phase = 'play';
@@ -879,6 +875,16 @@ export class Game {
   private markCall(who: CallerId) {
     this.save.calls = { ...(this.save.calls ?? {}), [who]: true };
     writeSave(this.save);
+    this.queueHomeCall(8);
+  }
+
+  /** Home calls in the condo morning: Mom after the second stop, then Nina (school-pickup check-in) once Mom's is handled. */
+  private queueHomeCall(ninaDelay = 5) {
+    if (this.setId !== 'condo' || this.pendingCall || this.callBusy) return;
+    const done = [...this.stopsDone].length;
+    const calls = this.save.calls ?? {};
+    if (done >= 2 && !calls.mom) this.pendingCall = { who: 'mom', delay: 4, attempt: 1 };
+    else if (done >= 3 && calls.mom && !calls.nina) this.pendingCall = { who: 'nina', delay: ninaDelay, attempt: 1 };
   }
 
   private meterNudge(delta: number, label: string) {
@@ -952,7 +958,7 @@ export class Game {
     if (!ok || ep !== this.epoch) return;
     this.meterNudge(10, 'walk-and-talk');
     this.addHearts(2, this.louise.root.position.clone().setY(1.6));
-    this.ui.toast(who === 'mom' ? 'Talked to Mom without stopping. She never noticed. (She noticed.)' : 'Walk-and-talk with Nina: complete.', 'good');
+    this.ui.toast(who === 'mom' ? 'Talked to Mom without stopping. She never noticed. (She noticed.)' : 'Laps around the kitchen with Nina on speaker: complete.', 'good');
     this.markCall(who);
   }
 
