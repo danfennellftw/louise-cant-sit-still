@@ -290,7 +290,7 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
           { who: 'leo', text: 'Awooo.' },
           { who: 'narrator', text: 'Mochi tilts her head, which is either support or a second opinion.' },
         ],
-        refill: 32, hearts: 3, color: '#ff9ec7', push: { dist: 5.1, height: 2.55, yaw: 0.12 },
+        refill: 32, hearts: 3, color: '#ff9ec7', push: { dist: 6.4, height: 2.05, yaw: 0.08, lookY: 0.22 },
       },
       {
         id: 'kick', label: 'The kick', verb: 'Dance', pos: [0.45, 1.15], stand: [0.45, 1.35], face: 0.08, pose: 'dance',
@@ -303,7 +303,7 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
           { who: 'dan', text: 'I\'m laughing. I\'m also concerned. Both can be true.' },
           { who: 'louise', text: 'The kick is a lifestyle.' },
         ],
-        refill: 24, hearts: 2, color: '#ff6f59', push: { dist: 5.5, height: 2.4, yaw: -0.04 },
+        refill: 24, hearts: 2, color: '#ff6f59', push: { dist: 6.5, height: 2.1, yaw: -0.02, lookY: 0.28 },
       },
     ];
   } else {

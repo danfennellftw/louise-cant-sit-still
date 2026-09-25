@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { assetUrl } from '../../engine/assets';
 import { clamp, damp, lerp } from '../../engine/util';
 import { kickEnvelope, kickSide } from './dance';
+import { buildPoseDoll, drivePose, type PoseDoll } from './poseDoll';
 
 const loader = new THREE.TextureLoader();
 const texCache = new Map<string, Promise<THREE.Texture>>();
@@ -46,7 +47,13 @@ export class SpriteRig {
   private sq = 1;
   private lastStep = 0;
   private danceT = 0;
-  private kickK = 0;
+  /** 0–1 while the kick is held up. The mid-kick frame waits on this. */
+  kickK = 0;
+  /** Torso lean during the dance, radians. Stays inside about ±18°. */
+  torsoTilt = 0;
+  /** World-space lift of the kicking leg, radians. 0 when both feet are down. */
+  legLift = 0;
+  pose: PoseDoll | null = null;
   onFootstep?: () => void;
   ready: Promise<boolean>;
 
@@ -72,8 +79,12 @@ export class SpriteRig {
         .then((t) => {
           this.mat.map = t;
           this.mat.needsUpdate = true;
-          const img = t.image as { width: number; height: number };
+          const img = t.image as CanvasImageSource & { width: number; height: number };
           this.mesh.scale.set((height * img.width) / img.height, height, 1);
+          if (!this.dog && img.width && img.height) {
+            this.pose = buildPoseDoll(img, img.width, img.height, height);
+            if (this.pose) this.flip.add(this.pose.root);
+          }
           return true;
         })
         .catch(() => false);
@@ -105,7 +116,8 @@ export class SpriteRig {
     const t = this.t;
     const s = this.state;
     this.kickK = 0;
-    if (s === 'dance') this.danceT += dt;
+    const holdPose = (globalThis as { __holdPose?: boolean }).__holdPose;
+    if (s === 'dance' && !holdPose) this.danceT += dt;
     const moving = s === 'walk' || s === 'run' || s === 'trot';
     if (moving) {
       this.phase += dt * (s === 'run' ? 15 : this.dog ? 17 : 11) * clamp(this.speed, 0.5, 1.4);
@@ -209,29 +221,18 @@ export class SpriteRig {
         sx = 0.94;
         break;
       case 'sing':
-        y = Math.abs(Math.sin(t * 6.2)) * h * 0.035;
-        rz = Math.sin(t * 3.1) * 0.1;
-        sy = 1.04 + Math.sin(t * 6.2) * 0.035;
-        rx = -camPitch * 0.45 - 0.1;
+        y = 0;
+        rz = 0;
+        rx = -camPitch * 0.45;
         break;
       case 'dance': {
         const kick = kickEnvelope(this.danceT);
         const side = kickSide(this.danceT);
         this.kickK = kick;
-        const jab = Math.sin(t * 22) > 0 ? 1 : -1;
-        if (kick < 0.08) {
-          rz = jab * 0.3;
-          y = Math.abs(Math.sin(t * 18)) * h * 0.03;
-          sy = 0.96;
-          sx = 1.04;
-          rx = -camPitch * 0.45 + Math.sin(t * 14) * 0.14;
-        } else {
-          rz = side * (1.35 + Math.sin(t * 16) * 0.18) * kick;
-          y = h * (0.04 + 0.1 * kick);
-          sx = 1.08;
-          sy = 1.02 + kick * 0.04;
-          rx = -camPitch * 0.32 + Math.sin(t * 10) * 0.18 * kick;
-        }
+        // Upright fallback: a small lean only, never a whole-body spin.
+        rz = this.pose ? 0 : side * 0.22 * kick;
+        y = 0;
+        rx = -camPitch * 0.45;
         break;
       }
       case 'cringe':
@@ -253,8 +254,26 @@ export class SpriteRig {
         rx = -camPitch * 0.45;
         break;
     }
+    const posing = (s === 'dance' || s === 'sing') && !!this.pose;
+    if (posing && this.pose) {
+      const kick = s === 'dance' ? this.kickK : 0;
+      const driven = drivePose(this.pose, s === 'dance' ? 'dance' : 'sing', t, kick, kickSide(this.danceT));
+      this.torsoTilt = driven.tilt;
+      this.legLift = driven.leg;
+      this.pose.root.visible = true;
+      this.mesh.visible = false;
+      rz = 0;
+      y = 0;
+      for (const m of this.pose.mats) m.mat.color.copy(m.base).multiply(this.mat.color);
+    } else {
+      this.torsoTilt = rz;
+      this.legLift = 0;
+      if (this.pose) this.pose.root.visible = false;
+      this.mesh.visible = true;
+    }
+    this.parkProp(s === 'sing' && posing);
     const lying = s === 'lie' || s === 'massage';
-    const gyr = s === 'dance' ? Math.sin(t * 8) * 0.08 : 0;
+    const gyr = s === 'dance' ? Math.sin(t * 8) * 0.035 : 0;
     if (lying) {
       // lie along the bed/table: feet toward `facingYaw`, head away from it
       this.pivot.position.set(Math.sin(facingYaw) * z, y, Math.cos(facingYaw) * z);
@@ -263,12 +282,21 @@ export class SpriteRig {
       this.pivot.position.set(gyr, y, 0);
       this.pivot.rotation.set(0, camYaw, 0);
     }
-    const hip = this.kickK * this.height * 0.52;
-    this.flip.position.y = hip;
-    this.mesh.position.y = -hip;
+    this.flip.position.y = 0;
+    this.mesh.position.y = 0;
     this.flip.rotation.set(rx, 0, rz);
     const squash = this.sq;
     this.flip.scale.set((lying ? 1 : this.flipK) * sx * lerp(1.12, 1, squash), sy * squash, 1);
+  }
+
+  /** Hairbrush rides the singing hand. Other props stay on the billboard. */
+  private parkProp(atMic: boolean) {
+    const parent = atMic && this.pose ? this.pose.mic : this.flip;
+    if (this.prop.parent === parent) return;
+    parent.add(this.prop);
+    this.prop.position.set(0, 0, 0);
+    this.prop.rotation.set(0, 0, 0);
+    this.prop.scale.set(1, 1, 1);
   }
 }
 

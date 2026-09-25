@@ -96,7 +96,7 @@ export interface StopDef {
   hearts: number;
   optional?: boolean;
   color?: string;
-  push?: { dist: number; height: number; yaw?: number };
+  push?: { dist: number; height: number; yaw?: number; lookY?: number };
 }
 
 export interface StopHooks {

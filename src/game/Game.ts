@@ -1502,9 +1502,10 @@ export class Game {
       this.louise.setState('sing');
       const brush = hairbrush();
       this.louise.hold(brush);
-      brush.position.set(0.32, this.louise.height * 0.78, 0.42);
-      brush.rotation.set(0.2, 0.2, -0.8);
-      brush.scale.setScalar(1.7);
+      // Local to the singing hand: just past the fist, beside the mouth.
+      brush.position.set(0.02, 0.07, 0.03);
+      brush.rotation.set(0.15, 0.2, 0.35);
+      brush.scale.setScalar(0.55);
       this.dogs.watch(L, { mochi: 'tilt', leo: 'sit' });
       this.notes.puff(L, 5);
       return;

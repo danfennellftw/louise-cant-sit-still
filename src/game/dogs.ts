@@ -134,11 +134,13 @@ export class DogPack {
     });
   }
 
-  /** Park both dogs on Louise and hold a pose (head tilt, howl). */
+  /** Park both dogs beside Louise, a step back from the camera, and hold a pose. */
   watch(at: THREE.Vector3, pose: { mochi: DogState; leo: DogState }) {
     this.stare(at);
     for (const d of this.dogs) {
+      const side = d.name === 'leo' ? -1 : 1;
       d.pose = pose[d.name];
+      d.target.set(at.x + side * 0.92, 0, at.z - 0.28);
       d.pos.set(d.target.x, 0, d.target.z);
       d.vel.set(0, 0, 0);
       d.actor.facing = Math.atan2(at.x - d.pos.x, at.z - d.pos.z);

@@ -455,7 +455,7 @@ function noteTexture(glyph: string, color: string) {
 /** Floating music notes for singing practice. Pooled sprites, original glyphs only. */
 export class NoteFloat {
   readonly root = new THREE.Group();
-  private pool: { s: THREE.Sprite; v: THREE.Vector3; life: number }[] = [];
+  private pool: { s: THREE.Sprite; v: THREE.Vector3; life: number; faceX: number; faceY: number }[] = [];
   private tex: THREE.Texture[] = [];
 
   constructor() {
@@ -467,7 +467,7 @@ export class NoteFloat {
       s.visible = false;
       s.scale.setScalar(0.42);
       this.root.add(s);
-      this.pool.push({ s, v: new THREE.Vector3(), life: 0 });
+      this.pool.push({ s, v: new THREE.Vector3(), life: 0, faceX: 0, faceY: 0 });
     }
   }
 
@@ -479,11 +479,19 @@ export class NoteFloat {
       left--;
       p.life = 2.1 + Math.random() * 0.5;
       p.s.visible = true;
-      p.s.position.set(at.x + (Math.random() - 0.5) * 0.7, at.y + 1.25 + Math.random() * 0.45, at.z + (Math.random() - 0.5) * 0.45);
-      p.s.scale.setScalar(0.55 + Math.random() * 0.28);
+      p.faceX = at.x;
+      p.faceY = at.y;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      // Above the crown and out to the side, so a note never sits on her face.
+      p.s.position.set(
+        at.x + side * (0.48 + Math.random() * 0.42),
+        at.y + 1.92 + Math.random() * 0.28,
+        at.z + side * 0.12,
+      );
+      p.s.scale.setScalar(0.34 + Math.random() * 0.12);
       (p.s.material as THREE.SpriteMaterial).opacity = 1;
       (p.s.material as THREE.SpriteMaterial).map = this.tex[Math.floor(Math.random() * this.tex.length)];
-      p.v.set((Math.random() - 0.5) * 0.55, 0.65 + Math.random() * 0.7, (Math.random() - 0.5) * 0.55);
+      p.v.set(side * (0.12 + Math.random() * 0.22), 0.42 + Math.random() * 0.35, side * 0.04);
     }
   }
 
@@ -493,7 +501,10 @@ export class NoteFloat {
       p.life -= dt;
       p.v.y += dt * 0.35;
       p.s.position.addScaledVector(p.v, dt);
-      p.s.position.x += Math.sin(p.life * 9) * dt * 0.15;
+      p.s.position.x += Math.sin(p.life * 9) * dt * 0.08;
+      const dx = p.s.position.x - p.faceX;
+      if (Math.abs(dx) < 0.4) p.s.position.x = p.faceX + Math.sign(dx || 1) * 0.4;
+      if (p.s.position.y < p.faceY + 1.82) p.s.position.y = p.faceY + 1.82;
       const m = p.s.material as THREE.SpriteMaterial;
       m.opacity = Math.max(0, Math.min(1, p.life * 1.4));
       if (p.life <= 0) p.s.visible = false;
