@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { assetUrl } from '../../engine/assets';
 import { clamp, damp, lerp } from '../../engine/util';
-import { kickEnvelope, kickSide } from './dance';
+import { kickSide } from './dance';
 import { buildPoseDoll, drivePose, type PoseDoll } from './poseDoll';
 
 const loader = new THREE.TextureLoader();
@@ -47,12 +47,16 @@ export class SpriteRig {
   private sq = 1;
   private lastStep = 0;
   private danceT = 0;
-  /** 0–1 while the kick is held up. The mid-kick frame waits on this. */
+  /** 0–1 while a little kick is up. */
   kickK = 0;
-  /** Torso lean during the dance, radians. Stays inside about ±18°. */
+  /** Which named step is winning: jabL, jabR, kickL, kickR, heave, bob. */
+  kickPhase = '';
+  /** Torso lean during the dance, radians. Stays inside about ±16°. */
   torsoTilt = 0;
   /** World-space lift of the kicking leg, radians. 0 when both feet are down. */
   legLift = 0;
+  /** 0–1 recoil for Dan's couch reaction. */
+  react = 0;
   pose: PoseDoll | null = null;
   onFootstep?: () => void;
   ready: Promise<boolean>;
@@ -116,8 +120,9 @@ export class SpriteRig {
     const t = this.t;
     const s = this.state;
     this.kickK = 0;
-    const holdPose = (globalThis as { __holdPose?: boolean }).__holdPose;
-    if (s === 'dance' && !holdPose) this.danceT += dt;
+    const hooks = globalThis as { __holdPose?: boolean; __kickT?: number };
+    if (typeof hooks.__kickT === 'number') this.danceT = hooks.__kickT;
+    else if (s === 'dance' && !hooks.__holdPose) this.danceT += dt;
     const moving = s === 'walk' || s === 'run' || s === 'trot';
     if (moving) {
       this.phase += dt * (s === 'run' ? 15 : this.dog ? 17 : 11) * clamp(this.speed, 0.5, 1.4);
@@ -226,22 +231,22 @@ export class SpriteRig {
         rx = -camPitch * 0.45;
         break;
       case 'dance': {
-        const kick = kickEnvelope(this.danceT);
         const side = kickSide(this.danceT);
-        this.kickK = kick;
-        // Upright fallback: a small lean only, never a whole-body spin.
-        rz = this.pose ? 0 : side * 0.22 * kick;
+        // Upright fallback if the cutout couldn't be split. Never a whole-body spin.
+        rz = this.pose ? 0 : side * 0.16;
         y = 0;
         rx = -camPitch * 0.45;
         break;
       }
-      case 'cringe':
-        sy = 0.55;
-        sx = 1.16;
-        y = h * 0.04;
-        rz = Math.sin(t * 18) * 0.42;
-        rx = -camPitch * 0.45 + 0.35;
+      case 'cringe': {
+        const react = this.react;
+        sy = 0.9 - react * 0.05;
+        sx = 1.04;
+        y = h * (0.01 + react * 0.015);
+        rz = Math.sin(t * 26) * (0.04 + react * 0.1);
+        rx = -camPitch * 0.45 - react * 0.28;
         break;
+      }
       case 'howl':
         rx = -1.05 + Math.sin(t * 12) * 0.08;
         sy = 1.22 + Math.sin(t * 12) * 0.05;
@@ -256,10 +261,11 @@ export class SpriteRig {
     }
     const posing = (s === 'dance' || s === 'sing') && !!this.pose;
     if (posing && this.pose) {
-      const kick = s === 'dance' ? this.kickK : 0;
-      const driven = drivePose(this.pose, s === 'dance' ? 'dance' : 'sing', t, kick, kickSide(this.danceT));
+      const driven = drivePose(this.pose, s === 'dance' ? 'dance' : 'sing', t, this.danceT);
       this.torsoTilt = driven.tilt;
       this.legLift = driven.leg;
+      this.kickK = driven.kick;
+      this.kickPhase = driven.phase;
       this.pose.root.visible = true;
       this.mesh.visible = false;
       rz = 0;
@@ -273,7 +279,7 @@ export class SpriteRig {
     }
     this.parkProp(s === 'sing' && posing);
     const lying = s === 'lie' || s === 'massage';
-    const gyr = s === 'dance' ? Math.sin(t * 8) * 0.035 : 0;
+    const gyr = 0;
     if (lying) {
       // lie along the bed/table: feet toward `facingYaw`, head away from it
       this.pivot.position.set(Math.sin(facingYaw) * z, y, Math.cos(facingYaw) * z);
@@ -287,6 +293,11 @@ export class SpriteRig {
     this.flip.rotation.set(rx, 0, rz);
     const squash = this.sq;
     this.flip.scale.set((lying ? 1 : this.flipK) * sx * lerp(1.12, 1, squash), sy * squash, 1);
+  }
+
+  /** Parent something to the camera-facing card (Dan's facepalm lives here). */
+  addBillboard(obj: THREE.Object3D) {
+    this.flip.add(obj);
   }
 
   /** Hairbrush rides the singing hand. Other props stay on the billboard. */

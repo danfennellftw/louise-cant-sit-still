@@ -67,6 +67,11 @@ export class Game {
   private noteT = 0;
   private danTween = 0;
   private danHome: { p: THREE.Vector3; f: number; s: ActorState } | null = null;
+  private danWatch = new THREE.Vector3(2.05, 0, -0.55);
+  private danSeated = false;
+  private kickReact = 0;
+  private prevKick = 0;
+  private danPalm: THREE.Group | null = null;
   private breadcrumbs: THREE.Mesh[] = [];
 
   private phase: Phase = 'boot';
@@ -1221,6 +1226,7 @@ export class Game {
       this.updateLeoMarks(dt);
       if (this.phase === 'play') this.updateCalls(dt);
       if (this.set.leaves && this.set.vehicle) this.set.leaves.center.set(L.x, 0, L.z);
+      this.updateDanceReact(dt);
       this.set.update(dt, this.t);
     }
     if (this.bike.group.visible) {
@@ -1512,6 +1518,8 @@ export class Game {
     }
     this.perform = 'dance';
     this.noteT = 0.05;
+    this.prevKick = 0;
+    this.kickReact = 0;
     this.louise.hold(null);
     this.louise.setState('dance');
     this.dogs.watch(L, { mochi: 'tilt', leo: 'howl' });
@@ -1523,20 +1531,69 @@ export class Game {
     if (dan && this.setId !== 'night') {
       if (!this.danHome) this.danHome = { p: dan.root.position.clone(), f: dan.facing, s: dan.state };
       dan.setState('cringe');
+      this.ensureDanPalm(dan);
       const from = dan.root.position.clone();
-      const to = new THREE.Vector3(2.05, 0, -0.55);
       const token = ++this.danTween;
+      this.danSeated = false;
       void tweens.to(0.45, (k) => {
         if (token !== this.danTween) return;
-        dan.root.position.lerpVectors(from, to, k);
+        dan.root.position.lerpVectors(from, this.danWatch, k);
         dan.facing = Math.atan2(L.x - dan.root.position.x, L.z - dan.root.position.z);
+        if (k > 0.98) this.danSeated = true;
       });
     }
+  }
+
+  /** Dan sinks into the couch and facepalms on each little kick. */
+  private updateDanceReact(dt: number) {
+    const dan = this.set?.npcs.find((n) => n.id === 'dan');
+    if (this.perform !== 'dance' || !dan) {
+      this.kickReact = Math.max(0, this.kickReact - dt * 3);
+      if (dan?.sprite) dan.sprite.react = this.kickReact;
+      if (this.danPalm) this.danPalm.visible = false;
+      return;
+    }
+    const env = this.louise.sprite?.kickK ?? 0;
+    if (env > 0.72 && this.prevKick <= 0.72) {
+      this.kickReact = 1;
+      this.cam.shake(0.05);
+    }
+    this.prevKick = env;
+    this.kickReact = Math.max(0, this.kickReact - dt * 2.2);
+    if (dan.sprite) dan.sprite.react = this.kickReact;
+    if (this.danSeated) {
+      const away = this.tmp.copy(this.danWatch).sub(this.louise.root.position);
+      away.y = 0;
+      if (away.lengthSq() < 1e-4) away.set(0, 0, -1);
+      away.normalize();
+      dan.root.position.copy(this.danWatch).addScaledVector(away, 0.2 * this.kickReact);
+      dan.facing = Math.atan2(this.louise.root.position.x - dan.root.position.x, this.louise.root.position.z - dan.root.position.z);
+    }
+    if (this.danPalm) {
+      const hit = this.kickReact;
+      this.danPalm.visible = hit > 0.12;
+      this.danPalm.position.set(0.02, 1.56, 0.06 + (1 - hit) * 0.22);
+      this.danPalm.rotation.z = -0.55 - hit * 0.2;
+      this.danPalm.scale.setScalar(0.9 + hit * 0.25);
+    }
+  }
+
+  private ensureDanPalm(dan: Actor) {
+    if (this.danPalm || !dan.sprite) return;
+    this.danPalm = facepalm();
+    this.danPalm.visible = false;
+    dan.sprite.addBillboard(this.danPalm);
   }
 
   private endPerformance(restoreDan = true) {
     this.perform = null;
     this.danTween++;
+    this.danSeated = false;
+    this.kickReact = 0;
+    this.prevKick = 0;
+    if (this.danPalm) this.danPalm.visible = false;
+    const dan = this.set?.npcs.find((n) => n.id === 'dan');
+    if (dan?.sprite) dan.sprite.react = 0;
     this.louise.hold(null);
     this.dogs.clearWatch();
     this.ui.dropLabel('kick-cap');
@@ -1552,6 +1609,29 @@ export class Game {
     dan.setState(this.danHome.s);
     this.danHome = null;
   }
+}
+
+function facepalm() {
+  const g = new THREE.Group();
+  const skin = new THREE.MeshBasicMaterial({ color: '#e4b596', toneMapped: false });
+  const deep = new THREE.MeshBasicMaterial({ color: '#c48d72', toneMapped: false });
+  const back = new THREE.Mesh(new THREE.CircleGeometry(0.078, 18), deep);
+  back.position.z = -0.008;
+  const palm = new THREE.Mesh(new THREE.CircleGeometry(0.068, 18), skin);
+  g.add(back, palm);
+  for (let i = 0; i < 4; i++) {
+    const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.011, 0.042, 3, 6), skin);
+    finger.position.set(-0.038 + i * 0.025, 0.072, 0.008);
+    g.add(finger);
+  }
+  const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.012, 0.036, 3, 6), skin);
+  thumb.position.set(-0.07, 0.02, 0.01);
+  thumb.rotation.z = 0.85;
+  g.add(thumb);
+  g.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) o.renderOrder = 8;
+  });
+  return g;
 }
 
 function hairbrush() {

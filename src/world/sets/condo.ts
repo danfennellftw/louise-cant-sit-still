@@ -293,7 +293,7 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
         refill: 32, hearts: 3, color: '#ff9ec7', push: { dist: 6.4, height: 2.05, yaw: 0.08, lookY: 0.22 },
       },
       {
-        id: 'kick', label: 'The kick', verb: 'Dance', pos: [0.45, 1.15], stand: [0.45, 1.35], face: 0.08, pose: 'dance',
+        id: 'kick', label: 'The kick', verb: 'Dance', pos: [0.45, 1.15], stand: [0.45, 1.72], face: 0.08, pose: 'dance',
         radius: 1.05, optional: true,
         mini: {
           type: 'sing', title: 'The kick', hint: 'Tap on the kick · or just watch',
@@ -303,7 +303,7 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
           { who: 'dan', text: 'I\'m laughing. I\'m also concerned. Both can be true.' },
           { who: 'louise', text: 'The kick is a lifestyle.' },
         ],
-        refill: 24, hearts: 2, color: '#ff6f59', push: { dist: 6.5, height: 2.1, yaw: -0.02, lookY: 0.28 },
+        refill: 24, hearts: 2, color: '#ff6f59', push: { dist: 2.15, height: 1.48, yaw: 0.18, lookY: 0.98 },
       },
     ];
   } else {

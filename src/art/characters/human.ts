@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { G, put } from '../geo';
 import { M, PAL } from '../materials';
 import { clamp, lerp } from '../../engine/util';
-import { kickEnvelope, kickSide } from './dance';
+import { littleKicks } from './dance';
 
 export type HumanState =
   | 'idle'
@@ -697,40 +697,24 @@ export class HumanRig {
         break;
       }
       case 'dance': {
-        const kick = kickEnvelope(this.danceT);
-        const side = kickSide(this.danceT);
-        const jab = Math.sign(Math.sin(t * 18)) || 1;
-        out.shLZ = 1.25 + jab * 0.38;
-        out.shRZ = -1.25 - jab * 0.28;
-        out.elL = -1.25;
-        out.elR = -1.2;
-        out.shLX = 0.45 + jab * 0.55;
-        out.shRX = 0.4 - jab * 0.5;
-        out.hdX = -0.12 + Math.sin(t * 12) * 0.28;
-        out.hdY = Math.sin(t * 7.5) * 0.4;
-        out.hdZ = Math.sin(t * 5.5) * 0.22;
-        out.spZ = Math.sin(t * 8) * (0.18 + kick * 0.22);
-        out.spY = Math.sin(t * 6) * 0.22;
-        out.spX = 0.08 + Math.sin(t * 9) * 0.12;
-        out.bY = kick * 0.07 + (1 - kick) * Math.abs(Math.sin(t * 18)) * 0.02;
-        out.bZ = Math.sin(t * 8) * 0.03;
-        const lift = -0.35 * kick;
-        const flail = 1.72 * kick;
-        if (side > 0) {
-          out.hipLX = lift;
-          out.hipLZ = flail;
-          out.knL = 0.12 * kick;
-          out.hipRX = 0.2;
-          out.knR = 0.28;
-          out.hipRZ = -0.08;
-        } else {
-          out.hipRX = lift;
-          out.hipRZ = -flail;
-          out.knR = 0.12 * kick;
-          out.hipLX = 0.2;
-          out.knL = 0.28;
-          out.hipLZ = 0.08;
-        }
+        const k = littleKicks(this.danceT);
+        out.shLX = -1.05 - k.jabL * 0.55;
+        out.shRX = -1.05 - k.jabR * 0.55;
+        out.shLZ = 1.15 + k.jabL * 0.4;
+        out.shRZ = -1.15 - k.jabR * 0.4;
+        out.elL = -0.22 * (1 - k.jabL);
+        out.elR = -0.22 * (1 - k.jabR);
+        out.hdX = -0.08 - k.heave * 0.2;
+        out.hdZ = k.bob * 0.45;
+        out.spX = Math.max(-0.06, Math.min(0.28, k.heave * 0.3));
+        out.spZ = Math.max(-0.26, Math.min(0.26, k.bob * 0.12));
+        const lift = 1.15;
+        out.hipLZ = -out.spZ - lift * k.kickL;
+        out.hipLX = -out.spX - 0.3 * k.kickL;
+        out.knL = 0.15 * k.kickL * (1 - k.kickL);
+        out.hipRZ = -out.spZ + lift * k.kickR;
+        out.hipRX = -out.spX - 0.3 * k.kickR;
+        out.knR = 0.15 * k.kickR * (1 - k.kickR);
         break;
       }
       case 'cringe': {
