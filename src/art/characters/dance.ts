@@ -1,27 +1,50 @@
 /**
- * Louise's little-kicks loop.
+ * Louise's little-kicks flipbook.
  *
- * Phrase (about 4.2s), named so the pose reads at a glance:
- *   jabL / jabR — stiff thumbs-up pumps, elbows bent, fists punching forward
- *   kickL / kickR — short sharp side kicks, one foot planted, off the jab beat
- *   heave — jerky torso convulsion (a dry heave, not a sway)
- *   bob — head snaps side to side with the pumps
- *
- * The opening half-second already has a thumb jab and the first kick.
- * Original motion only — no borrowed footage, audio, or titles.
+ * Each frame is one finished full-body drawing. Playback swaps that
+ * texture on a single billboard — no separate arm or leg meshes.
+ * Original motion only: no borrowed footage, audio, or titles.
  */
 
-export const KICK_LOOP = 3.84;
+export const KICK_FPS = 10;
 export const KICK_SHOW_SEC = 4.6;
 
-/** Frames where one move is clearly winning, for stills. */
-export const KICK_SHOTS = {
-  kickL: 0.08,
-  kickR: 0.4,
-  jab: 0.04,
-} as const;
-
 export type KickPhase = 'jabL' | 'jabR' | 'kickL' | 'kickR' | 'heave' | 'bob';
+
+export interface KickFrame {
+  id: string;
+  file: string;
+  /** 1 while a foot is off the floor. */
+  kick: number;
+  /** +1 screen-left kick, -1 screen-right kick. */
+  side: 1 | -1;
+  /** Holds at KICK_FPS. Two ticks ≈ a readable beat. */
+  ticks: number;
+  phase: KickPhase;
+}
+
+/** Order is the dance: right kick, jab + left kick, heave, kick swap, grin, lean. */
+export const KICK_FRAMES: KickFrame[] = [
+  { id: 'kickR', file: 'sprites/kick/f1.webp', kick: 1, side: -1, ticks: 2, phase: 'kickR' },
+  { id: 'jabL', file: 'sprites/kick/f2.webp', kick: 1, side: 1, ticks: 2, phase: 'jabL' },
+  { id: 'heave', file: 'sprites/kick/f3.webp', kick: 0, side: 1, ticks: 2, phase: 'heave' },
+  { id: 'kickL', file: 'sprites/kick/f4.webp', kick: 1, side: 1, ticks: 2, phase: 'kickL' },
+  { id: 'grin', file: 'sprites/kick/f5.webp', kick: 1, side: -1, ticks: 2, phase: 'kickR' },
+  { id: 'lean', file: 'sprites/kick/f6.webp', kick: 1, side: -1, ticks: 2, phase: 'heave' },
+];
+
+export const KICK_FILES = KICK_FRAMES.map((f) => f.file);
+
+const TICK = 1 / KICK_FPS;
+const TOTAL_TICKS = KICK_FRAMES.reduce((sum, f) => sum + f.ticks, 0);
+export const KICK_LOOP = TOTAL_TICKS * TICK;
+
+/** Times that freeze a single readable drawing. */
+export const KICK_SHOTS = {
+  kickR: 0.05,
+  jab: 0.25,
+  kickL: 0.65,
+} as const;
 
 export interface LittleKickPose {
   phase: KickPhase;
@@ -34,69 +57,40 @@ export interface LittleKickPose {
   bob: number;
 }
 
-/** Alternating pumps, a little kick on almost every beat so a still shows a foot up. */
-const JAB_L: number[] = [];
-const JAB_R: number[] = [];
-const KICK_L: number[] = [];
-const KICK_R: number[] = [];
-const HEAVE: number[] = [];
-for (let i = 0; i < 12; i++) {
-  const t = i * 0.32;
-  JAB_L.push(t);
-  JAB_R.push(t + 0.16);
-  if (i % 2 === 0) {
-    KICK_L.push(t);
-    KICK_R.push(t + 0.32);
+export function kickFrameAt(danceT: number): KickFrame & { index: number } {
+  const t = ((danceT % KICK_LOOP) + KICK_LOOP) % KICK_LOOP;
+  let tick = Math.floor(t / TICK + 1e-6);
+  if (tick >= TOTAL_TICKS) tick = TOTAL_TICKS - 1;
+  let acc = 0;
+  for (let i = 0; i < KICK_FRAMES.length; i++) {
+    const frame = KICK_FRAMES[i];
+    if (tick < acc + frame.ticks) return { ...frame, index: i };
+    acc += frame.ticks;
   }
-}
-for (let i = 0; i < 24; i++) HEAVE.push(0.04 + i * 0.16);
-
-function pulse(t: number, at: number, attack: number, hold: number, release: number) {
-  let best = 0;
-  for (const shift of [0, KICK_LOOP, -KICK_LOOP]) {
-    const u = t - (at + shift);
-    let v = 0;
-    if (u >= -attack && u < 0) v = (u + attack) / attack;
-    else if (u >= 0 && u < hold) v = 1;
-    else if (u >= hold && u < hold + release) v = 1 - (u - hold) / release;
-    if (v > best) best = v;
-  }
-  // Snap the attack so the kick arrives, it doesn't ease in like a stretch.
-  return best <= 0 ? 0 : 1 - (1 - best) * (1 - best);
-}
-
-function maxPulse(t: number, ats: number[], attack: number, hold: number, release: number) {
-  let m = 0;
-  for (const at of ats) m = Math.max(m, pulse(t, at, attack, hold, release));
-  return m;
+  return { ...KICK_FRAMES[0], index: 0 };
 }
 
 export function littleKicks(danceT: number): LittleKickPose {
-  const t = ((danceT % KICK_LOOP) + KICK_LOOP) % KICK_LOOP;
-  const jabL = maxPulse(t, JAB_L, 0.03, 0.07, 0.05);
-  const jabR = maxPulse(t, JAB_R, 0.03, 0.07, 0.05);
-  const kickL = maxPulse(t, KICK_L, 0.03, 0.16, 0.05);
-  const kickR = maxPulse(t, KICK_R, 0.03, 0.16, 0.05);
-  const heave = maxPulse(t, HEAVE, 0.02, 0.035, 0.04);
-  let bob = jabR - jabL;
-  if (Math.abs(bob) < 0.2) bob = (Math.floor(t * 5.5) % 2 === 0 ? -1 : 1) * 0.62;
-  let phase: KickPhase = 'bob';
-  if (kickL > 0.55 && kickL >= kickR) phase = 'kickL';
-  else if (kickR > 0.55) phase = 'kickR';
-  else if (jabL > 0.55 && jabL >= jabR) phase = 'jabL';
-  else if (jabR > 0.55) phase = 'jabR';
-  else if (heave > 0.55) phase = 'heave';
-  return { phase, jabL, jabR, kickL, kickR, heave, bob };
+  const f = kickFrameAt(danceT);
+  const kickL = f.kick > 0 && f.side > 0 ? f.kick : 0;
+  const kickR = f.kick > 0 && f.side < 0 ? f.kick : 0;
+  return {
+    phase: f.phase,
+    jabL: f.phase === 'jabL' ? 1 : 0,
+    jabR: f.phase === 'jabR' ? 1 : 0,
+    kickL,
+    kickR,
+    heave: f.phase === 'heave' ? 1 : 0,
+    bob: f.side,
+  };
 }
 
 /** 0–1 while a little kick is up. Tap windows in the mini-game use this. */
 export function kickEnvelope(danceT: number) {
-  const p = littleKicks(danceT);
-  return Math.max(p.kickL, p.kickR);
+  return kickFrameAt(danceT).kick;
 }
 
-/** +1 kicks to her screen-left, -1 to her screen-right. The first kick is left. */
+/** +1 kicks to her screen-left, -1 to her screen-right. */
 export function kickSide(danceT: number): 1 | -1 {
-  const p = littleKicks(danceT);
-  return p.kickR > p.kickL ? -1 : 1;
+  return kickFrameAt(danceT).side;
 }

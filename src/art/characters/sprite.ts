@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { assetUrl } from '../../engine/assets';
 import { clamp, damp, lerp } from '../../engine/util';
-import { kickSide } from './dance';
+import { kickFrameAt, KICK_FILES } from './dance';
 import { buildPoseDoll, drivePose, type PoseDoll } from './poseDoll';
 
 const loader = new THREE.TextureLoader();
@@ -58,6 +58,10 @@ export class SpriteRig {
   /** 0–1 recoil for Dan's couch reaction. */
   react = 0;
   pose: PoseDoll | null = null;
+  /** Full-body kick drawings. Dance swaps these on the one billboard. */
+  private kickTex: THREE.Texture[] = [];
+  private baseMap: THREE.Texture | null = null;
+  private shown: THREE.Texture | null = null;
   onFootstep?: () => void;
   ready: Promise<boolean>;
 
@@ -80,14 +84,23 @@ export class SpriteRig {
     this.root.add(this.pivot);
     if (typeof source === 'string') {
       this.ready = loadTex(source)
-        .then((t) => {
-          this.mat.map = t;
-          this.mat.needsUpdate = true;
+        .then(async (t) => {
+          this.useMap(t);
+          this.baseMap = t;
           const img = t.image as CanvasImageSource & { width: number; height: number };
-          this.mesh.scale.set((height * img.width) / img.height, height, 1);
           if (!this.dog && img.width && img.height) {
             this.pose = buildPoseDoll(img, img.width, img.height, height);
-            if (this.pose) this.flip.add(this.pose.root);
+            if (this.pose) {
+              this.pose.root.visible = false;
+              this.flip.add(this.pose.root);
+            }
+          }
+          if (source.includes('louise')) {
+            try {
+              this.kickTex = await Promise.all(KICK_FILES.map((file) => loadTex(file)));
+            } catch {
+              this.kickTex = [];
+            }
           }
           return true;
         })
@@ -231,11 +244,15 @@ export class SpriteRig {
         rx = -camPitch * 0.45;
         break;
       case 'dance': {
-        const side = kickSide(this.danceT);
-        // Upright fallback if the cutout couldn't be split. Never a whole-body spin.
-        rz = this.pose ? 0 : side * 0.16;
-        y = 0;
+        const fr = kickFrameAt(this.danceT);
+        // Juice only: a tiny hop and a ±3° paper wobble. The pose is the drawing.
+        rz = Math.sin(this.danceT * Math.PI * 10) * ((3 * Math.PI) / 180);
+        y = Math.abs(Math.sin(this.danceT * Math.PI * 10)) * h * 0.018;
         rx = -camPitch * 0.45;
+        this.kickK = fr.kick;
+        this.kickPhase = fr.phase;
+        this.legLift = fr.kick * 1.05;
+        this.torsoTilt = fr.phase === 'heave' ? 0.18 : rz;
         break;
       }
       case 'cringe': {
@@ -259,9 +276,17 @@ export class SpriteRig {
         rx = -camPitch * 0.45;
         break;
     }
-    const posing = (s === 'dance' || s === 'sing') && !!this.pose;
-    if (posing && this.pose) {
-      const driven = drivePose(this.pose, s === 'dance' ? 'dance' : 'sing', t, this.danceT);
+    // Kick and the singing finale use one billboard. The chopped doll is singing-only.
+    const dancing = s === 'dance';
+    const posing = s === 'sing' && !!this.pose;
+    if (dancing) {
+      const fr = kickFrameAt(this.danceT);
+      const map = this.kickTex[fr.index];
+      if (map) this.useMap(map);
+      if (this.pose) this.pose.root.visible = false;
+      this.mesh.visible = true;
+    } else if (posing && this.pose) {
+      const driven = drivePose(this.pose, 'sing', t, this.danceT);
       this.torsoTilt = driven.tilt;
       this.legLift = driven.leg;
       this.kickK = driven.kick;
@@ -272,6 +297,7 @@ export class SpriteRig {
       y = 0;
       for (const m of this.pose.mats) m.mat.color.copy(m.base).multiply(this.mat.color);
     } else {
+      if (this.baseMap) this.useMap(this.baseMap);
       this.torsoTilt = rz;
       this.legLift = 0;
       if (this.pose) this.pose.root.visible = false;
@@ -293,6 +319,15 @@ export class SpriteRig {
     this.flip.rotation.set(rx, 0, rz);
     const squash = this.sq;
     this.flip.scale.set((lying ? 1 : this.flipK) * sx * lerp(1.12, 1, squash), sy * squash, 1);
+  }
+
+  private useMap(map: THREE.Texture) {
+    if (this.shown === map) return;
+    this.shown = map;
+    this.mat.map = map;
+    this.mat.needsUpdate = true;
+    const img = map.image as { width?: number; height?: number };
+    if (img?.width && img?.height) this.mesh.scale.set((this.height * img.width) / img.height, this.height, 1);
   }
 
   /** Parent something to the camera-facing card (Dan's facepalm lives here). */

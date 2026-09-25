@@ -7,6 +7,7 @@ import { tweens } from '../engine/tween';
 import { clamp, damp, dampAngle, easeInOutCubic, easeOutBack, sleep } from '../engine/util';
 import { Actor, VIEW, type ActorState } from '../art/characters/actor';
 import { LOUISE_LOOK } from '../art/characters/human';
+import { KICK_FILES } from '../art/characters/dance';
 import { preloadSprites } from '../art/characters/sprite';
 import { Confetti, NoteFloat, StopMarker, TapMarker } from '../art/fx';
 import { G } from '../art/geo';
@@ -186,7 +187,7 @@ export class Game {
   /* =================== boot / title =================== */
   async boot() {
     await Promise.race([document.fonts?.ready ?? Promise.resolve(), sleep(1500)]);
-    await preloadSprites(['sprites/louise.webp', 'sprites/dan.webp', 'sprites/mochi.webp', 'sprites/leo.webp']);
+    await preloadSprites(['sprites/louise.webp', 'sprites/dan.webp', 'sprites/mochi.webp', 'sprites/leo.webp', ...KICK_FILES]);
     this.loadSetNow('condo');
     this.louise.root.position.set(-1.2, 0, -0.4);
     this.louise.facing = 0.3;
