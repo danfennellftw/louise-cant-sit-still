@@ -3,6 +3,7 @@ import type { Audio } from '../engine/audio';
 import { haptic } from '../engine/audio';
 import { esc, portraitHtml } from './ui';
 import { clamp } from '../engine/util';
+import { KICK_SHOW_SEC, kickEnvelope } from '../art/characters/dance';
 
 export interface MiniResult {
   score: number;
@@ -20,6 +21,8 @@ export class MiniGames {
   private stage = document.getElementById('stage')!;
   private cleanup: (() => void)[] = [];
   onBeat?: (kind: 'good' | 'miss' | 'tick') => void;
+  /** Singing practice cues: equip the brush, float a note, or break into the kick. */
+  onCue?: (cue: 'sing' | 'note' | 'drop') => void;
 
   constructor(private audio: Audio) {}
 
@@ -84,12 +87,209 @@ export class MiniGames {
       case 'clean':
         r = await this.clean(spec, progress);
         break;
+      case 'sing':
+        r = await this.sing(spec, progress);
+        break;
       default:
         r = await this.dialogue(spec, progress);
     }
     if (id !== this.runId) return new Promise<MiniResult>(() => {});
     this.finish();
     return r;
+  }
+
+  /* ---- sing: tap la-la notes, hold the long one, then the kick ---- */
+  private sing(spec: MiniSpec, progress: Progress) {
+    const dropOnly = !!spec.song?.drop;
+    const { bar, body } = this.shell(spec);
+    const phrase: { syl: string; hold: boolean }[] = [
+      { syl: 'la', hold: false },
+      { syl: 'la', hold: false },
+      { syl: 'hmm', hold: false },
+      { syl: 'doo', hold: false },
+      { syl: 'la', hold: false },
+      { syl: 'la', hold: false },
+      { syl: 'doo', hold: false },
+      { syl: 'laaa', hold: true },
+    ];
+    body.innerHTML = `
+      <div class="sing-lyric ${dropOnly ? 'hidden' : ''}">la la la</div>
+      <div class="sing-lane ${dropOnly ? 'hidden' : ''}"><div class="sing-goal"></div></div>
+      <div class="kick-banner ${dropOnly ? '' : 'hidden'}">the kick</div>
+      <button class="big-btn" type="button">${dropOnly ? 'Kick!' : 'Sing!'}</button>`;
+    const lyric = body.querySelector('.sing-lyric') as HTMLElement;
+    const lane = body.querySelector('.sing-lane') as HTMLElement;
+    const banner = body.querySelector('.kick-banner') as HTMLElement;
+    const btn = body.querySelector('.big-btn') as HTMLElement;
+    const hint = this.stage.querySelector('.stage-hint') as HTMLElement | null;
+    return new Promise<MiniResult>((resolve) => {
+      type Note = { el: HTMLElement; x: number; syl: string; hold: boolean; judged: boolean; sustain: number };
+      const live: Note[] = [];
+      let spawned = 0;
+      let judged = 0;
+      let hits = 0;
+      let spawnIn = 0.2;
+      let phase: 'notes' | 'drop' = dropOnly ? 'drop' : 'notes';
+      let dropT = 0;
+      let kickHits = 0;
+      let kickLatch = false;
+      let holding = false;
+      let raf = 0;
+      let last = performance.now();
+      const goal = 0.22;
+
+      if (dropOnly) this.onCue?.('drop');
+      else this.onCue?.('sing');
+
+      const popLyric = (text: string) => {
+        lyric.textContent = text;
+        lyric.classList.remove('pop');
+        void lyric.offsetWidth;
+        lyric.classList.add('pop');
+      };
+      const inGoal = (n: Note) => Math.abs(n.x - goal) <= (n.hold ? 0.16 : 0.1);
+      const judge = (n: Note, ok: boolean) => {
+        if (n.judged) return;
+        n.judged = true;
+        judged++;
+        n.el.classList.add(ok ? 'hit' : 'miss');
+        if (ok) {
+          hits++;
+          popLyric(n.hold ? 'laaa!' : n.syl);
+          this.audio.la(hits);
+          this.onBeat?.('good');
+          this.onCue?.('note');
+          haptic(16);
+        } else {
+          this.audio.miss();
+          this.onBeat?.('miss');
+        }
+        setTimeout(() => n.el.remove(), 240);
+      };
+      const tapNote = () => {
+        const n = live
+          .filter((x) => !x.judged && !x.hold && inGoal(x))
+          .sort((a, b) => Math.abs(a.x - goal) - Math.abs(b.x - goal))[0];
+        if (n) {
+          judge(n, true);
+          lane.classList.remove('hit');
+          void lane.offsetWidth;
+          lane.classList.add('hit');
+          return;
+        }
+        if (live.some((x) => !x.judged && !x.hold)) {
+          this.audio.miss();
+          this.onBeat?.('miss');
+          lane.classList.remove('miss');
+          void lane.offsetWidth;
+          lane.classList.add('miss');
+        }
+      };
+      const tapKick = () => {
+        btn.classList.add('down');
+        setTimeout(() => btn.classList.remove('down'), 90);
+        if (kickEnvelope(dropT) > 0.65 && !kickLatch) {
+          kickLatch = true;
+          kickHits++;
+          banner.classList.remove('pop');
+          void banner.offsetWidth;
+          banner.classList.add('pop');
+          this.audio.pop();
+          this.onBeat?.('good');
+          this.onCue?.('note');
+          haptic(22);
+        } else {
+          this.audio.miss();
+          this.onBeat?.('miss');
+        }
+      };
+      const goDrop = () => {
+        if (phase === 'drop') return;
+        phase = 'drop';
+        lane.classList.add('hidden');
+        lyric.classList.add('hidden');
+        banner.classList.remove('hidden');
+        btn.textContent = 'Kick!';
+        if (hint) hint.textContent = 'Tap on the kick · or just watch her commit';
+        this.onCue?.('drop');
+        this.audio.pop();
+      };
+      const finish = () => {
+        cancelAnimationFrame(raf);
+        const notePart = dropOnly ? 0.75 : hits / phrase.length;
+        const score = clamp(0.5 + notePart * 0.34 + Math.min(kickHits, 4) * 0.06, 0.5, 1);
+        const hearts = (!dropOnly && hits >= 6 ? 1 : 0) + (kickHits >= 2 ? 1 : 0);
+        resolve({ score, hearts, lines: [] });
+      };
+      const loop = (now: number) => {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        if (phase === 'notes') {
+          spawnIn -= dt;
+          if (spawnIn <= 0 && spawned < phrase.length) {
+            const specn = phrase[spawned++];
+            const el = document.createElement('div');
+            el.className = `sing-note${specn.hold ? ' hold' : ''}`;
+            el.textContent = specn.syl;
+            lane.appendChild(el);
+            live.push({ el, x: 1.12, syl: specn.syl, hold: specn.hold, judged: false, sustain: 0 });
+            spawnIn = specn.hold ? 0.15 : 0.58;
+          }
+          for (const n of live) {
+            if (n.judged) continue;
+            n.x -= dt * (n.hold ? 0.48 : 0.9);
+            n.el.style.left = `${n.x * 100}%`;
+            if (n.hold && holding && inGoal(n)) {
+              n.sustain = Math.min(1, n.sustain + dt / 0.58);
+              n.el.style.setProperty('--s', String(n.sustain));
+              if (Math.floor(n.sustain * 4) !== Math.floor((n.sustain - dt / 0.58) * 4)) this.audio.la(hits + 3);
+              if (n.sustain >= 1) judge(n, true);
+            }
+            if (!n.judged && n.x < goal - (n.hold ? 0.16 : 0.1)) judge(n, n.hold && n.sustain >= 0.55);
+          }
+          const k = judged / phrase.length;
+          bar.style.width = `${k * 62}%`;
+          progress(k * 0.62);
+          if (spawned >= phrase.length && live.every((n) => n.judged)) goDrop();
+        } else {
+          dropT += dt;
+          if (kickEnvelope(dropT) <= 0.65) kickLatch = false;
+          const k = Math.min(1, dropT / KICK_SHOW_SEC);
+          bar.style.width = `${(dropOnly ? k : 0.62 + 0.38 * k) * 100}%`;
+          progress(dropOnly ? k : 0.62 + 0.38 * k);
+          if (dropT >= KICK_SHOW_SEC) {
+            finish();
+            return;
+          }
+        }
+        raf = requestAnimationFrame(loop);
+      };
+      const press = (e: Event) => {
+        e.preventDefault();
+        holding = true;
+        if (phase === 'drop') tapKick();
+        else tapNote();
+      };
+      const releaseHold = () => {
+        holding = false;
+        btn.classList.remove('down');
+      };
+      this.on(btn, 'pointerdown', press);
+      this.on(lane, 'pointerdown', press);
+      this.on(banner, 'pointerdown', press);
+      this.on(window, 'pointerup', releaseHold);
+      this.on(window, 'pointercancel', releaseHold);
+      this.on(window, 'keydown', (e: KeyboardEvent) => {
+        if (e.repeat) return;
+        if (![' ', 'e', 'enter'].includes(e.key.toLowerCase())) return;
+        press(e);
+      });
+      this.on(window, 'keyup', (e: KeyboardEvent) => {
+        if ([' ', 'e', 'enter'].includes(e.key.toLowerCase())) releaseHold();
+      });
+      this.cleanup.push(() => cancelAnimationFrame(raf));
+      raf = requestAnimationFrame(loop);
+    });
   }
 
   /* ---- pull: drag a handle up smoothly; yanking too fast wrinkles it ---- */

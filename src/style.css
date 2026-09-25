@@ -714,6 +714,85 @@ button {
 .timing-bar.miss {
   animation: shake 0.25s;
 }
+.sing-lyric {
+  text-align: center;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 26px;
+  color: var(--plum);
+  min-height: 32px;
+  line-height: 1.1;
+}
+.sing-lyric.pop,
+.kick-banner.pop {
+  animation: bump 0.28s;
+}
+.sing-lane {
+  position: relative;
+  height: 74px;
+  border-radius: 16px;
+  background: #2b1d2e;
+  overflow: hidden;
+  margin: 8px 0 12px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+.sing-lane.hit {
+  box-shadow: inset 0 0 0 3px var(--mint);
+}
+.sing-lane.miss {
+  animation: shake 0.25s;
+}
+.sing-goal {
+  position: absolute;
+  left: 14%;
+  top: 8px;
+  bottom: 8px;
+  width: 16%;
+  border-radius: 12px;
+  background: rgba(242, 196, 109, 0.28);
+  box-shadow: inset 0 0 0 2px #f2c46d;
+}
+.sing-note {
+  position: absolute;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--plum);
+  background: #fff6ec;
+  box-shadow: 0 3px 0 #e6c9b8;
+}
+.sing-note.hold {
+  width: 62px;
+  height: 62px;
+  margin: -31px 0 0 -31px;
+  background: conic-gradient(#7fd1b9 calc(var(--s, 0) * 1turn), #fff6ec 0);
+  box-shadow: 0 0 0 3px #f2c46d;
+}
+.sing-note.hit {
+  background: var(--mint);
+  box-shadow: 0 0 0 3px #7fd1b9;
+}
+.sing-note.miss {
+  opacity: 0.28;
+}
+.kick-banner {
+  text-align: center;
+  font-family: var(--ui);
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: 0.04em;
+  color: var(--coral);
+  margin: 2px 0 10px;
+}
 .reps {
   display: flex;
   gap: 6px;

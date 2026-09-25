@@ -3,7 +3,7 @@ import { G, put } from '../geo';
 import { M, PAL } from '../materials';
 import { lerp, rng } from '../../engine/util';
 
-export type DogState = 'idle' | 'trot' | 'run' | 'bark' | 'sit' | 'lie' | 'beg' | 'sniff' | 'mark';
+export type DogState = 'idle' | 'trot' | 'run' | 'bark' | 'sit' | 'lie' | 'beg' | 'sniff' | 'mark' | 'howl' | 'tilt';
 
 export interface DogLook {
   name: 'mochi' | 'leo';
@@ -165,6 +165,7 @@ export class DogRig {
     let tRx = 0;
     let headX = 0;
     let headY = 0;
+    let headZ = 0;
     let tailWag = 6;
     const legT = [0, 0, 0, 0];
     if (move) {
@@ -200,12 +201,24 @@ export class DogRig {
       headY = Math.sin(t * 1.7) * 0.5;
       tRx = 0.15;
       tailWag = 10;
+    } else if (s === 'howl') {
+      tRx = -0.9;
+      tY = 0.07;
+      headX = -1.05;
+      tailWag = 3;
+    } else if (s === 'tilt') {
+      headX = 0.15;
+      headY = 0.2;
+      headZ = 0.7 + Math.sin(t * 1.6) * 0.08;
+      tailWag = 7;
     } else {
       headY = Math.sin(t * 0.8) * 0.4;
       headX = Math.sin(t * 1.3) * 0.08;
       tY = Math.sin(t * 2) * 0.005;
     }
-    if (s === 'bark' || this.barkT > 0) {
+    if (s === 'howl') {
+      j.jaw.rotation.x = 0.62 + Math.sin(t * 12) * 0.16;
+    } else if (s === 'bark' || this.barkT > 0) {
       this.barkT = Math.max(0, this.barkT - dt);
       const pop = Math.max(0, Math.sin(t * 22));
       headX = -0.35 - pop * 0.2;
@@ -219,6 +232,7 @@ export class DogRig {
     j.torso.rotation.x = lerp(j.torso.rotation.x, tRx, k);
     j.head.rotation.x = lerp(j.head.rotation.x, headX - j.torso.rotation.x * 0.8, k);
     j.head.rotation.y = lerp(j.head.rotation.y, headY, k);
+    j.head.rotation.z = lerp(j.head.rotation.z, headZ, k);
     j.legs.forEach((l, i) => (l.rotation.x = lerp(l.rotation.x, legT[i], move ? 1 : k)));
     j.tail.rotation.z = Math.sin(t * tailWag) * 0.5;
     j.tail.rotation.x = -0.4 + (s === 'lie' ? 0.6 : 0);

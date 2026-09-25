@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { assetUrl } from '../../engine/assets';
 import { clamp, damp, lerp } from '../../engine/util';
+import { kickEnvelope, kickSide } from './dance';
 
 const loader = new THREE.TextureLoader();
 const texCache = new Map<string, Promise<THREE.Texture>>();
@@ -32,6 +33,8 @@ export class SpriteRig {
   private pivot = new THREE.Group();
   private flip = new THREE.Group();
   readonly mesh: THREE.Mesh;
+  /** Props (hairbrush) ride the billboard so they stay in her hand. */
+  readonly prop = new THREE.Group();
   private mat: THREE.MeshBasicMaterial;
   state = 'idle';
   speed = 0;
@@ -42,6 +45,8 @@ export class SpriteRig {
   private flipK = 1;
   private sq = 1;
   private lastStep = 0;
+  private danceT = 0;
+  private kickK = 0;
   onFootstep?: () => void;
   ready: Promise<boolean>;
 
@@ -59,6 +64,7 @@ export class SpriteRig {
     this.mesh = new THREE.Mesh(geo, this.mat);
     this.mesh.scale.set(height * aspect, height, 1);
     this.flip.add(this.mesh);
+    this.flip.add(this.prop);
     this.pivot.add(this.flip);
     this.root.add(this.pivot);
     if (typeof source === 'string') {
@@ -85,6 +91,7 @@ export class SpriteRig {
   }
 
   setState(s: string) {
+    if (s === 'dance' && this.state !== 'dance') this.danceT = 0;
     this.state = s;
   }
 
@@ -97,6 +104,8 @@ export class SpriteRig {
     this.t += dt;
     const t = this.t;
     const s = this.state;
+    this.kickK = 0;
+    if (s === 'dance') this.danceT += dt;
     const moving = s === 'walk' || s === 'run' || s === 'trot';
     if (moving) {
       this.phase += dt * (s === 'run' ? 15 : this.dog ? 17 : 11) * clamp(this.speed, 0.5, 1.4);
@@ -107,8 +116,9 @@ export class SpriteRig {
         this.sq = Math.min(this.sq, s === 'run' ? 0.9 : 0.94);
       }
     }
-    if (facingScreenSign !== 0 && Math.sign(facingScreenSign) !== this.side) this.side = Math.sign(facingScreenSign);
-    this.flipK = damp(this.flipK, this.side, 16, dt);
+    const lockFlip = s === 'dance' || s === 'sing' || s === 'cringe' || s === 'howl' || s === 'tilt';
+    if (!lockFlip && facingScreenSign !== 0 && Math.sign(facingScreenSign) !== this.side) this.side = Math.sign(facingScreenSign);
+    this.flipK = damp(this.flipK, lockFlip ? 1 : this.side, 16, dt);
     this.sq = damp(this.sq, 1, 9, dt);
 
     let y = 0;
@@ -198,16 +208,64 @@ export class SpriteRig {
         y = h * 0.04;
         sx = 0.94;
         break;
+      case 'sing':
+        y = Math.abs(Math.sin(t * 6.2)) * h * 0.035;
+        rz = Math.sin(t * 3.1) * 0.1;
+        sy = 1.04 + Math.sin(t * 6.2) * 0.035;
+        rx = -camPitch * 0.45 - 0.1;
+        break;
+      case 'dance': {
+        const kick = kickEnvelope(this.danceT);
+        const side = kickSide(this.danceT);
+        this.kickK = kick;
+        const jab = Math.sin(t * 22) > 0 ? 1 : -1;
+        if (kick < 0.08) {
+          rz = jab * 0.3;
+          y = Math.abs(Math.sin(t * 18)) * h * 0.03;
+          sy = 0.96;
+          sx = 1.04;
+          rx = -camPitch * 0.45 + Math.sin(t * 14) * 0.14;
+        } else {
+          rz = side * (1.05 + Math.sin(t * 16) * 0.16) * kick;
+          y = h * (0.02 + 0.07 * kick);
+          sx = 1.08;
+          sy = 1.02 + kick * 0.04;
+          rx = -camPitch * 0.32 + Math.sin(t * 10) * 0.18 * kick;
+        }
+        break;
+      }
+      case 'cringe':
+        sy = 0.74;
+        sx = 1.08;
+        y = h * 0.02;
+        rz = Math.sin(t * 16) * 0.16;
+        rx = -camPitch * 0.45 + 0.18;
+        break;
+      case 'howl':
+        rx = -0.62 + Math.sin(t * 12) * 0.06;
+        sy = 1.16 + Math.sin(t * 12) * 0.04;
+        y = h * 0.05;
+        rz = Math.sin(t * 7) * 0.05;
+        break;
+      case 'tilt':
+        rz = 0.48 + Math.sin(t * 1.7) * 0.06;
+        y = h * 0.015;
+        rx = -camPitch * 0.45;
+        break;
     }
     const lying = s === 'lie' || s === 'massage';
+    const gyr = s === 'dance' ? Math.sin(t * 8) * 0.08 : 0;
     if (lying) {
       // lie along the bed/table: feet toward `facingYaw`, head away from it
       this.pivot.position.set(Math.sin(facingYaw) * z, y, Math.cos(facingYaw) * z);
       this.pivot.rotation.set(0, facingYaw, 0);
     } else {
-      this.pivot.position.set(0, y, 0);
+      this.pivot.position.set(gyr, y, 0);
       this.pivot.rotation.set(0, camYaw, 0);
     }
+    const hip = this.kickK * this.height * 0.52;
+    this.flip.position.y = hip;
+    this.mesh.position.y = -hip;
     this.flip.rotation.set(rx, 0, rz);
     const squash = this.sq;
     this.flip.scale.set((lying ? 1 : this.flipK) * sx * lerp(1.12, 1, squash), sy * squash, 1);

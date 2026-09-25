@@ -4,6 +4,7 @@ import { G } from '../art/geo';
 import { M } from '../art/materials';
 import { resolveCircle, clampBounds, separate } from './physics';
 import { dampAngle, clamp } from '../engine/util';
+import type { DogState } from '../art/characters/dog';
 import type { BuiltSet } from '../world/types';
 
 type Mode = 'follow' | 'wander' | 'zoomies' | 'fetch' | 'flee' | 'block' | 'celebrate' | 'basket' | 'herd' | 'bedded' | 'spot' | 'stare' | 'mark';
@@ -37,6 +38,8 @@ export class Dog {
   markId = '';
   markLeg = new THREE.Vector3();
   gates: [number, number][] = [];
+  /** Forced pose while she sings: Mochi cocks her head, Leo howls. */
+  pose: DogState | null = null;
   constructor(readonly name: 'mochi' | 'leo', readonly display: string, readonly side: number) {
     this.actor = new Actor(name, { sprite: `sprites/${name}.webp`, height: name === 'mochi' ? 0.82 : 0.78, dog: name });
   }
@@ -77,6 +80,7 @@ export class DogPack {
       d.vel.set(0, 0, 0);
       d.spot = null;
       d.petted = false;
+      d.pose = null;
       d.actor.root.visible = set.dogs !== 'none';
       d.actor.shadow.visible = true;
       d.actor.root.scale.setScalar(1);
@@ -100,6 +104,7 @@ export class DogPack {
 
   celebrate() {
     this.dogs.forEach((d, i) => {
+      d.pose = null;
       if (d.mode === 'basket' || d.mode === 'spot' || d.mode === 'bedded') {
         if (d.mode === 'basket') setTimeout(() => this.ev.bark(d, BARKS[d.name][0]), i * 250);
         return;
@@ -129,8 +134,25 @@ export class DogPack {
     });
   }
 
+  /** Park both dogs on Louise and hold a pose (head tilt, howl). */
+  watch(at: THREE.Vector3, pose: { mochi: DogState; leo: DogState }) {
+    this.stare(at);
+    for (const d of this.dogs) {
+      d.pose = pose[d.name];
+      d.pos.set(d.target.x, 0, d.target.z);
+      d.vel.set(0, 0, 0);
+      d.actor.facing = Math.atan2(at.x - d.pos.x, at.z - d.pos.z);
+      d.actor.setState(d.pose);
+    }
+  }
+
+  clearWatch() {
+    this.dogs.forEach((d) => (d.pose = null));
+  }
+
   release() {
     this.dogs.forEach((d) => {
+      d.pose = null;
       if (d.mode === 'spot' || d.mode === 'stare' || d.mode === 'celebrate') {
         d.mode = 'follow';
         d.pos.y = 0;
@@ -432,6 +454,7 @@ export class DogPack {
         resolveCircle(d.pos, 0.22, ctx.set.colliders, d.vel);
         clampBounds(d.pos, ctx.set.bounds, d.vel);
       }
+      if (d.pose && speed < 0.35) state = d.pose;
       if (speed > 0.2) a.facing = dampAngle(a.facing, Math.atan2(d.vel.x, d.vel.z), 10, dt);
       a.speed = speed / 3;
       if (a.state !== state && !(a.state === 'bark' && d.telegraph > 0)) a.setState(state as never);

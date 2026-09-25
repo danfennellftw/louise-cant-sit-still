@@ -88,11 +88,11 @@ export class Actor {
   }
 
   hold(obj: THREE.Object3D | null) {
-    if (this.held) this.visual.remove(this.held);
+    if (this.held) this.held.removeFromParent();
     this.held = obj;
     if (obj) {
       obj.position.set(0, this.height * 0.3, 0.2);
-      this.visual.add(obj);
+      (this.sprite?.prop ?? this.visual).add(obj);
     }
   }
 

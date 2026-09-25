@@ -23,6 +23,8 @@ const CHAPTERS: { label: string; set: SetId }[] = [
 ];
 
 const SCENES: Scene[] = [
+  { label: 'Singing practice', note: 'Hairbrush la-la in the living room', set: 'condo', stop: 'sing', at: [-1.15, 1.7] },
+  { label: 'The kick', note: 'That dance, from the couch', set: 'condo', stop: 'kick', at: [0.45, 2.15] },
   { label: 'Condo morning', note: 'Living room, kitchen, bedroom', set: 'condo' },
   { label: 'Plan the day', note: 'Desk nook stop', set: 'condo', stop: 'desk' },
   { label: 'Mochi’s accidents', note: 'Cleanup mini', set: 'condo', stop: 'mochi' },
