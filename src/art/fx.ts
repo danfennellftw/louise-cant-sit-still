@@ -477,10 +477,10 @@ export class NoteFloat {
       if (left <= 0) break;
       if (p.life > 0) continue;
       left--;
-      p.life = 1.35 + Math.random() * 0.45;
+      p.life = 2.1 + Math.random() * 0.5;
       p.s.visible = true;
-      p.s.position.set(at.x + (Math.random() - 0.5) * 0.45, at.y + 1.15 + Math.random() * 0.35, at.z + (Math.random() - 0.5) * 0.35);
-      p.s.scale.setScalar(0.34 + Math.random() * 0.22);
+      p.s.position.set(at.x + (Math.random() - 0.5) * 0.7, at.y + 1.25 + Math.random() * 0.45, at.z + (Math.random() - 0.5) * 0.45);
+      p.s.scale.setScalar(0.55 + Math.random() * 0.28);
       (p.s.material as THREE.SpriteMaterial).opacity = 1;
       (p.s.material as THREE.SpriteMaterial).map = this.tex[Math.floor(Math.random() * this.tex.length)];
       p.v.set((Math.random() - 0.5) * 0.55, 0.65 + Math.random() * 0.7, (Math.random() - 0.5) * 0.55);

@@ -1502,8 +1502,9 @@ export class Game {
       this.louise.setState('sing');
       const brush = hairbrush();
       this.louise.hold(brush);
-      brush.position.set(0.2, this.louise.height * 0.56, 0.18);
-      brush.rotation.set(0.15, 0.3, -0.65);
+      brush.position.set(0.32, this.louise.height * 0.78, 0.42);
+      brush.rotation.set(0.2, 0.2, -0.8);
+      brush.scale.setScalar(1.7);
       this.dogs.watch(L, { mochi: 'tilt', leo: 'sit' });
       this.notes.puff(L, 5);
       return;

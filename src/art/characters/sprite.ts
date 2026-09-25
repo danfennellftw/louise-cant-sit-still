@@ -226,8 +226,8 @@ export class SpriteRig {
           sx = 1.04;
           rx = -camPitch * 0.45 + Math.sin(t * 14) * 0.14;
         } else {
-          rz = side * (1.05 + Math.sin(t * 16) * 0.16) * kick;
-          y = h * (0.02 + 0.07 * kick);
+          rz = side * (1.35 + Math.sin(t * 16) * 0.18) * kick;
+          y = h * (0.04 + 0.1 * kick);
           sx = 1.08;
           sy = 1.02 + kick * 0.04;
           rx = -camPitch * 0.32 + Math.sin(t * 10) * 0.18 * kick;
@@ -235,21 +235,21 @@ export class SpriteRig {
         break;
       }
       case 'cringe':
-        sy = 0.74;
-        sx = 1.08;
-        y = h * 0.02;
-        rz = Math.sin(t * 16) * 0.16;
-        rx = -camPitch * 0.45 + 0.18;
+        sy = 0.55;
+        sx = 1.16;
+        y = h * 0.04;
+        rz = Math.sin(t * 18) * 0.42;
+        rx = -camPitch * 0.45 + 0.35;
         break;
       case 'howl':
-        rx = -0.62 + Math.sin(t * 12) * 0.06;
-        sy = 1.16 + Math.sin(t * 12) * 0.04;
-        y = h * 0.05;
-        rz = Math.sin(t * 7) * 0.05;
+        rx = -1.05 + Math.sin(t * 12) * 0.08;
+        sy = 1.22 + Math.sin(t * 12) * 0.05;
+        y = h * 0.08;
+        rz = Math.sin(t * 7) * 0.08;
         break;
       case 'tilt':
-        rz = 0.48 + Math.sin(t * 1.7) * 0.06;
-        y = h * 0.015;
+        rz = 0.72 + Math.sin(t * 1.7) * 0.08;
+        y = h * 0.02;
         rx = -camPitch * 0.45;
         break;
     }
