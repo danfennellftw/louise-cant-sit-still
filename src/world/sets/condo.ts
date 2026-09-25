@@ -273,6 +273,38 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
         },
         refill: 15, hearts: 3, color: '#ff8fb1', push: { dist: 4.2, height: 2.6, yaw: 0.5 },
       },
+      {
+        id: 'sing', label: 'Singing practice', verb: 'Sing', pos: [-1.15, 0.35], stand: [-1.15, 0.55], face: 0.05, pose: 'sing',
+        radius: 1.05, optional: true,
+        mini: {
+          type: 'sing', title: 'Don\'t Sit, La-La', hint: 'Tap when a note lands in the gold · hold the long laaa',
+          song: { title: 'Don\'t Sit, La-La' },
+        },
+        intro: [
+          { who: 'louise', text: 'Vocal warm-up. Hairbrush. The condo has incredible acoustics.' },
+          { who: 'narrator', text: 'It does not. She is debuting an original called Don\'t Sit, La-La. The lyrics are la, la, and la.' },
+          { who: 'dan', text: 'I\'ll be on the couch. Emotionally present.' },
+        ],
+        outro: [
+          { who: 'dan', text: 'That kick. I felt it in the sectional.' },
+          { who: 'leo', text: 'Awooo.' },
+          { who: 'narrator', text: 'Mochi tilts her head, which is either support or a second opinion.' },
+        ],
+        refill: 32, hearts: 3, color: '#ff9ec7', push: { dist: 6.4, height: 2.05, yaw: 0.08, lookY: 0.22 },
+      },
+      {
+        id: 'kick', label: 'The kick', verb: 'Dance', pos: [0.45, 1.15], stand: [0.45, 1.72], face: 0.08, pose: 'dance',
+        radius: 1.05, optional: true,
+        mini: {
+          type: 'sing', title: 'The kick', hint: 'Tap on the kick · or just watch',
+          song: { title: 'The kick', drop: true },
+        },
+        outro: [
+          { who: 'dan', text: 'I\'m laughing. I\'m also concerned. Both can be true.' },
+          { who: 'louise', text: 'The kick is a lifestyle.' },
+        ],
+        refill: 24, hearts: 2, color: '#ff6f59', push: { dist: 1.72, height: 1.32, yaw: 0.42, lookY: 1.02 },
+      },
     ];
   } else {
     bedTv.setOn(false);

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { G, put } from '../geo';
 import { M, PAL } from '../materials';
 import { clamp, lerp } from '../../engine/util';
+import { littleKicks } from './dance';
 
 export type HumanState =
   | 'idle'
@@ -21,7 +22,10 @@ export type HumanState =
   | 'massage'
   | 'stretch'
   | 'couch'
-  | 'shop';
+  | 'shop'
+  | 'sing'
+  | 'dance'
+  | 'cringe';
 
 interface Joints {
   root: THREE.Group;
@@ -39,6 +43,8 @@ interface Joints {
   hipR: THREE.Group;
   knR: THREE.Group;
   handR: THREE.Group;
+  thumbL: THREE.Group;
+  thumbR: THREE.Group;
   pony: THREE.Group[];
 }
 
@@ -221,6 +227,10 @@ export function buildHuman(look: HumanLook): Joints {
     }
   }
   const handR = grp(elR, 0, -0.26, 0.02);
+  const thumbL = grp(elL, 0.036 * slim, -0.28, 0.02);
+  const thumbR = grp(elR, -0.036 * slim, -0.28, 0.02);
+  put(thumbL, G.capsule(0.012, 0.05, 3, 6), skin, 0, -0.025, 0);
+  put(thumbR, G.capsule(0.012, 0.05, 3, 6), skin, 0, -0.025, 0);
 
   const legOff = 0.082 * slim;
   const hipL = grp(hips, legOff, -0.02, 0);
@@ -241,7 +251,7 @@ export function buildHuman(look: HumanLook): Joints {
     put(kn, G.box(0.115, 0.025, 0.255, 0.01), sole, 0, -0.43, 0.047);
   }
 
-  return { root, body, hips, spine, neck, head, shL, elL, shR, elR, hipL, knL, hipR, knR, handR, pony };
+  return { root, body, hips, spine, neck, head, shL, elL, shR, elR, hipL, knL, hipR, knR, handR, thumbL, thumbR, pony };
 }
 
 function buildFace(head: THREE.Group, look: HumanLook, skin: THREE.Material) {
@@ -395,6 +405,7 @@ export class HumanRig {
   private ponyOff: number[] = [];
   private ponyZ: number[] = [];
   private lastFacing = 0;
+  private danceT = 0;
   private phone: THREE.Mesh;
   onFootstep?: () => void;
   private lastStepSign = 0;
@@ -414,6 +425,7 @@ export class HumanRig {
 
   setState(s: HumanState) {
     if (s === this.state) return;
+    if (s === 'dance') this.danceT = 0;
     this.prev = this.state;
     this.state = s;
     this.blend = 0;
@@ -668,6 +680,61 @@ export class HumanRig {
         out.hipRZ = -0.15;
         break;
       }
+      case 'sing': {
+        const sway = Math.sin(t * 3.1);
+        out.shRZ = -2.35 + Math.sin(t * 6.5) * 0.18;
+        out.elR = -0.45;
+        out.shLZ = 0.85;
+        out.elL = -1.45;
+        out.shLX = 0.15;
+        out.spZ = sway * 0.14;
+        out.spY = sway * 0.08;
+        out.hdX = -0.28 + Math.sin(t * 6.5) * 0.1;
+        out.hdZ = sway * 0.12;
+        out.bY = Math.abs(Math.sin(t * 6.5)) * 0.035;
+        out.hipLX = sway * 0.08;
+        out.hipRX = -sway * 0.08;
+        break;
+      }
+      case 'dance': {
+        const k = littleKicks(this.danceT);
+        out.shLX = -0.42 - k.jabL * 0.45;
+        out.shRX = -0.42 - k.jabR * 0.45;
+        out.shLZ = 0.5;
+        out.shRZ = -0.5;
+        out.elL = -1.85 - k.jabL * 0.2;
+        out.elR = -1.85 - k.jabR * 0.2;
+        out.hdX = -0.08 - k.heave * 0.2;
+        out.hdZ = k.bob * 0.45;
+        out.spX = Math.max(-0.06, Math.min(0.28, k.heave * 0.3));
+        out.spZ = Math.max(-0.26, Math.min(0.26, k.bob * 0.12));
+        const lift = 1.15;
+        out.hipLZ = -out.spZ - lift * k.kickL;
+        out.hipLX = -out.spX - 0.3 * k.kickL;
+        out.knL = 0.15 * k.kickL * (1 - k.kickL);
+        out.hipRZ = -out.spZ + lift * k.kickR;
+        out.hipRX = -out.spX - 0.3 * k.kickR;
+        out.knR = 0.15 * k.kickR * (1 - k.kickR);
+        break;
+      }
+      case 'cringe': {
+        out.bY = -0.38;
+        out.hipLX = -1.35;
+        out.hipRX = -1.4;
+        out.knL = 1.35;
+        out.knR = 1.45;
+        out.spX = -0.42;
+        out.hdX = 0.05;
+        out.hdZ = Math.sin(t * 16) * 0.22;
+        out.hdY = Math.sin(t * 9) * 0.3;
+        out.shLZ = 1.55;
+        out.shRZ = -1.55;
+        out.elL = -2.15;
+        out.elR = -2.15;
+        out.shLX = -0.35;
+        out.shRX = -0.35;
+        break;
+      }
     }
   }
 
@@ -676,6 +743,7 @@ export class HumanRig {
 
   update(dt: number, facing: number) {
     this.t += dt;
+    if (this.state === 'dance') this.danceT += dt;
     const locomotion = this.state === 'walk' || this.state === 'run';
     if (locomotion) {
       this.phase += dt * (this.state === 'run' ? 13 : 9.5) * clamp(this.speed, 0.4, 1.4);
@@ -713,6 +781,9 @@ export class HumanRig {
     j.hipR.rotation.set(p.hipRX, 0, p.hipRZ);
     j.knL.rotation.x = p.knL;
     j.knR.rotation.x = p.knR;
+    const flare = this.state === 'dance' ? 1.3 + Math.sin(this.t * 22) * 0.18 : 0.28;
+    j.thumbL.rotation.set(0.35, 0, -flare);
+    j.thumbR.rotation.set(0.35, 0, flare);
     this.phone.visible = this.state === 'phone';
 
     // Ponytail: damped springs react to speed, bounce and turning.

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { assetUrl } from '../../engine/assets';
 import { clamp, damp, lerp } from '../../engine/util';
+import { kickFrameAt, KICK_FILES } from './dance';
+import { buildPoseDoll, drivePose, type PoseDoll } from './poseDoll';
 
 const loader = new THREE.TextureLoader();
 const texCache = new Map<string, Promise<THREE.Texture>>();
@@ -32,6 +34,8 @@ export class SpriteRig {
   private pivot = new THREE.Group();
   private flip = new THREE.Group();
   readonly mesh: THREE.Mesh;
+  /** Props (hairbrush) ride the billboard so they stay in her hand. */
+  readonly prop = new THREE.Group();
   private mat: THREE.MeshBasicMaterial;
   state = 'idle';
   speed = 0;
@@ -42,6 +46,22 @@ export class SpriteRig {
   private flipK = 1;
   private sq = 1;
   private lastStep = 0;
+  private danceT = 0;
+  /** 0–1 while a little kick is up. */
+  kickK = 0;
+  /** Which named step is winning: jabL, jabR, kickL, kickR, heave, bob. */
+  kickPhase = '';
+  /** Torso lean during the dance, radians. Stays inside about ±16°. */
+  torsoTilt = 0;
+  /** World-space lift of the kicking leg, radians. 0 when both feet are down. */
+  legLift = 0;
+  /** 0–1 recoil for Dan's couch reaction. */
+  react = 0;
+  pose: PoseDoll | null = null;
+  /** Full-body kick drawings. Dance swaps these on the one billboard. */
+  private kickTex: THREE.Texture[] = [];
+  private baseMap: THREE.Texture | null = null;
+  private shown: THREE.Texture | null = null;
   onFootstep?: () => void;
   ready: Promise<boolean>;
 
@@ -59,15 +79,29 @@ export class SpriteRig {
     this.mesh = new THREE.Mesh(geo, this.mat);
     this.mesh.scale.set(height * aspect, height, 1);
     this.flip.add(this.mesh);
+    this.flip.add(this.prop);
     this.pivot.add(this.flip);
     this.root.add(this.pivot);
     if (typeof source === 'string') {
       this.ready = loadTex(source)
-        .then((t) => {
-          this.mat.map = t;
-          this.mat.needsUpdate = true;
-          const img = t.image as { width: number; height: number };
-          this.mesh.scale.set((height * img.width) / img.height, height, 1);
+        .then(async (t) => {
+          this.useMap(t);
+          this.baseMap = t;
+          const img = t.image as CanvasImageSource & { width: number; height: number };
+          if (!this.dog && img.width && img.height) {
+            this.pose = buildPoseDoll(img, img.width, img.height, height);
+            if (this.pose) {
+              this.pose.root.visible = false;
+              this.flip.add(this.pose.root);
+            }
+          }
+          if (source.includes('louise')) {
+            try {
+              this.kickTex = await Promise.all(KICK_FILES.map((file) => loadTex(file)));
+            } catch {
+              this.kickTex = [];
+            }
+          }
           return true;
         })
         .catch(() => false);
@@ -85,6 +119,7 @@ export class SpriteRig {
   }
 
   setState(s: string) {
+    if (s === 'dance' && this.state !== 'dance') this.danceT = 0;
     this.state = s;
   }
 
@@ -97,6 +132,10 @@ export class SpriteRig {
     this.t += dt;
     const t = this.t;
     const s = this.state;
+    this.kickK = 0;
+    const hooks = globalThis as { __holdPose?: boolean; __kickT?: number };
+    if (typeof hooks.__kickT === 'number') this.danceT = hooks.__kickT;
+    else if (s === 'dance' && !hooks.__holdPose) this.danceT += dt;
     const moving = s === 'walk' || s === 'run' || s === 'trot';
     if (moving) {
       this.phase += dt * (s === 'run' ? 15 : this.dog ? 17 : 11) * clamp(this.speed, 0.5, 1.4);
@@ -107,8 +146,9 @@ export class SpriteRig {
         this.sq = Math.min(this.sq, s === 'run' ? 0.9 : 0.94);
       }
     }
-    if (facingScreenSign !== 0 && Math.sign(facingScreenSign) !== this.side) this.side = Math.sign(facingScreenSign);
-    this.flipK = damp(this.flipK, this.side, 16, dt);
+    const lockFlip = s === 'dance' || s === 'sing' || s === 'cringe' || s === 'howl' || s === 'tilt';
+    if (!lockFlip && facingScreenSign !== 0 && Math.sign(facingScreenSign) !== this.side) this.side = Math.sign(facingScreenSign);
+    this.flipK = damp(this.flipK, lockFlip ? 1 : this.side, 16, dt);
     this.sq = damp(this.sq, 1, 9, dt);
 
     let y = 0;
@@ -198,19 +238,111 @@ export class SpriteRig {
         y = h * 0.04;
         sx = 0.94;
         break;
+      case 'sing':
+        y = 0;
+        rz = 0;
+        rx = -camPitch * 0.45;
+        break;
+      case 'dance': {
+        const fr = kickFrameAt(this.danceT);
+        // Juice only: a tiny hop and a ±3° paper wobble. The pose is the drawing.
+        rz = Math.sin(this.danceT * Math.PI * 10) * ((3 * Math.PI) / 180);
+        y = Math.abs(Math.sin(this.danceT * Math.PI * 10)) * h * 0.018;
+        rx = -camPitch * 0.45;
+        this.kickK = fr.kick;
+        this.kickPhase = fr.phase;
+        this.legLift = fr.kick * 1.05;
+        this.torsoTilt = fr.phase === 'heave' ? 0.18 : rz;
+        break;
+      }
+      case 'cringe': {
+        const react = this.react;
+        sy = 0.9 - react * 0.05;
+        sx = 1.04;
+        y = h * (0.01 + react * 0.015);
+        rz = Math.sin(t * 26) * (0.04 + react * 0.1);
+        rx = -camPitch * 0.45 - react * 0.28;
+        break;
+      }
+      case 'howl':
+        rx = -1.05 + Math.sin(t * 12) * 0.08;
+        sy = 1.22 + Math.sin(t * 12) * 0.05;
+        y = h * 0.08;
+        rz = Math.sin(t * 7) * 0.08;
+        break;
+      case 'tilt':
+        rz = 0.72 + Math.sin(t * 1.7) * 0.08;
+        y = h * 0.02;
+        rx = -camPitch * 0.45;
+        break;
     }
+    // Kick and the singing finale use one billboard. The chopped doll is singing-only.
+    const dancing = s === 'dance';
+    const posing = s === 'sing' && !!this.pose;
+    if (dancing) {
+      const fr = kickFrameAt(this.danceT);
+      const map = this.kickTex[fr.index];
+      if (map) this.useMap(map);
+      if (this.pose) this.pose.root.visible = false;
+      this.mesh.visible = true;
+    } else if (posing && this.pose) {
+      const driven = drivePose(this.pose, 'sing', t, this.danceT);
+      this.torsoTilt = driven.tilt;
+      this.legLift = driven.leg;
+      this.kickK = driven.kick;
+      this.kickPhase = driven.phase;
+      this.pose.root.visible = true;
+      this.mesh.visible = false;
+      rz = 0;
+      y = 0;
+      for (const m of this.pose.mats) m.mat.color.copy(m.base).multiply(this.mat.color);
+    } else {
+      if (this.baseMap) this.useMap(this.baseMap);
+      this.torsoTilt = rz;
+      this.legLift = 0;
+      if (this.pose) this.pose.root.visible = false;
+      this.mesh.visible = true;
+    }
+    this.parkProp(s === 'sing' && posing);
     const lying = s === 'lie' || s === 'massage';
+    const gyr = 0;
     if (lying) {
       // lie along the bed/table: feet toward `facingYaw`, head away from it
       this.pivot.position.set(Math.sin(facingYaw) * z, y, Math.cos(facingYaw) * z);
       this.pivot.rotation.set(0, facingYaw, 0);
     } else {
-      this.pivot.position.set(0, y, 0);
+      this.pivot.position.set(gyr, y, 0);
       this.pivot.rotation.set(0, camYaw, 0);
     }
+    this.flip.position.y = 0;
+    this.mesh.position.y = 0;
     this.flip.rotation.set(rx, 0, rz);
     const squash = this.sq;
     this.flip.scale.set((lying ? 1 : this.flipK) * sx * lerp(1.12, 1, squash), sy * squash, 1);
+  }
+
+  private useMap(map: THREE.Texture) {
+    if (this.shown === map) return;
+    this.shown = map;
+    this.mat.map = map;
+    this.mat.needsUpdate = true;
+    const img = map.image as { width?: number; height?: number };
+    if (img?.width && img?.height) this.mesh.scale.set((this.height * img.width) / img.height, this.height, 1);
+  }
+
+  /** Parent something to the camera-facing card (Dan's facepalm lives here). */
+  addBillboard(obj: THREE.Object3D) {
+    this.flip.add(obj);
+  }
+
+  /** Hairbrush rides the singing hand. Other props stay on the billboard. */
+  private parkProp(atMic: boolean) {
+    const parent = atMic && this.pose ? this.pose.mic : this.flip;
+    if (this.prop.parent === parent) return;
+    parent.add(this.prop);
+    this.prop.position.set(0, 0, 0);
+    this.prop.rotation.set(0, 0, 0);
+    this.prop.scale.set(1, 1, 1);
   }
 }
 

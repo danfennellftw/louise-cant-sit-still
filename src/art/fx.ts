@@ -432,3 +432,82 @@ export class TapMarker {
     this.mesh.scale.setScalar(0.6 + (1 - k) * 0.9);
   }
 }
+
+const NOTE_GLYPHS = ['♪', '♫', '♩'];
+const NOTE_COLORS = ['#ff6f59', '#f2c46d', '#7fd1b9', '#ff9ec7', '#fff6ec'];
+
+function noteTexture(glyph: string, color: string) {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 128;
+  const g = c.getContext('2d')!;
+  g.clearRect(0, 0, 128, 128);
+  g.fillStyle = color;
+  g.font = '700 96px Georgia, serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(glyph, 64, 72);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Floating music notes for singing practice. Pooled sprites, original glyphs only. */
+export class NoteFloat {
+  readonly root = new THREE.Group();
+  private pool: { s: THREE.Sprite; v: THREE.Vector3; life: number; faceX: number; faceY: number }[] = [];
+  private tex: THREE.Texture[] = [];
+
+  constructor() {
+    NOTE_GLYPHS.forEach((g) => NOTE_COLORS.forEach((c) => this.tex.push(noteTexture(g, c))));
+    for (let i = 0; i < 28; i++) {
+      const s = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: this.tex[i % this.tex.length], transparent: true, depthWrite: false, toneMapped: false, opacity: 0 })
+      );
+      s.visible = false;
+      s.scale.setScalar(0.42);
+      this.root.add(s);
+      this.pool.push({ s, v: new THREE.Vector3(), life: 0, faceX: 0, faceY: 0 });
+    }
+  }
+
+  puff(at: THREE.Vector3, n = 3) {
+    let left = n;
+    for (const p of this.pool) {
+      if (left <= 0) break;
+      if (p.life > 0) continue;
+      left--;
+      p.life = 2.1 + Math.random() * 0.5;
+      p.s.visible = true;
+      p.faceX = at.x;
+      p.faceY = at.y;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      // Above the crown and out to the side, so a note never sits on her face.
+      p.s.position.set(
+        at.x + side * (0.48 + Math.random() * 0.42),
+        at.y + 1.92 + Math.random() * 0.28,
+        at.z + side * 0.12,
+      );
+      p.s.scale.setScalar(0.34 + Math.random() * 0.12);
+      (p.s.material as THREE.SpriteMaterial).opacity = 1;
+      (p.s.material as THREE.SpriteMaterial).map = this.tex[Math.floor(Math.random() * this.tex.length)];
+      p.v.set(side * (0.12 + Math.random() * 0.22), 0.42 + Math.random() * 0.35, side * 0.04);
+    }
+  }
+
+  update(dt: number) {
+    for (const p of this.pool) {
+      if (p.life <= 0) continue;
+      p.life -= dt;
+      p.v.y += dt * 0.35;
+      p.s.position.addScaledVector(p.v, dt);
+      p.s.position.x += Math.sin(p.life * 9) * dt * 0.08;
+      const dx = p.s.position.x - p.faceX;
+      if (Math.abs(dx) < 0.4) p.s.position.x = p.faceX + Math.sign(dx || 1) * 0.4;
+      if (p.s.position.y < p.faceY + 1.82) p.s.position.y = p.faceY + 1.82;
+      const m = p.s.material as THREE.SpriteMaterial;
+      m.opacity = Math.max(0, Math.min(1, p.life * 1.4));
+      if (p.life <= 0) p.s.visible = false;
+    }
+  }
+}

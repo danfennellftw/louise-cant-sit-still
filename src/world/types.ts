@@ -20,7 +20,7 @@ export interface Line {
   sub?: string;
 }
 
-export type MiniType = 'pull' | 'sort' | 'place' | 'timing' | 'mash' | 'hold' | 'balance' | 'dialogue' | 'phone' | 'clean';
+export type MiniType = 'pull' | 'sort' | 'place' | 'timing' | 'mash' | 'hold' | 'balance' | 'dialogue' | 'phone' | 'clean' | 'sing';
 
 export interface MiniItem {
   id: string;
@@ -59,6 +59,8 @@ export interface MiniSpec {
   caller?: { letter: string; color: string };
   /** Clean mini: draw the furniture leg Leo picked. */
   leg?: 'piano' | 'stool';
+  /** Singing practice. Original humming only. `drop` skips straight to the kick. */
+  song?: { title: string; drop?: boolean };
 }
 
 export interface MarkSpot {
@@ -94,7 +96,7 @@ export interface StopDef {
   hearts: number;
   optional?: boolean;
   color?: string;
-  push?: { dist: number; height: number; yaw?: number };
+  push?: { dist: number; height: number; yaw?: number; lookY?: number };
 }
 
 export interface StopHooks {

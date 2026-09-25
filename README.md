@@ -46,6 +46,7 @@ Vercel: framework preset **Vite**, build `npm run build`, output `dist`. `vercel
   - hold, including a fidgety version that hops away (massage, sauna)
   - balance (creek bridge, stair climber)
   - dialogue choices (AI meetup, Dan, YouTube pick)
+  - singing practice (tap notes on the beat, hold the long "laaa", original humming only) which ends in the kick
 - **Incoming calls.** The phone rings at home and you pick Answer, Speaker or Decline:
   - **Mom** calls in the condo morning (after your second stop). She speaks Tagalog with English subtitles, plus her signature "Are you there?", "Just calling. Just calling." and "Nothing nothing."
   - **Nina** calls at home in the condo morning, once Mom's call is handled and a third stop is done. She's on school pickup for Hudson and Olivia while Jimmy is away on a work trip.
@@ -64,7 +65,7 @@ Vercel: framework preset **Vite**, build `npm run build`, output `dist`. `vercel
   - A day-map navigator lets you jump to any stop at any time (including later chapters and finished stops, which reset for a replay). The story order is only a suggestion: the next stops glow. The HUD map button travels too.
 - **Detour the day (demo).** A gold **Detour · demo** pill sits in the HUD and works at any moment: mid-stop, mid-minigame, during dialogue, a ringing call or the fail card. The same panel is on the title screen and in the pause menu. It offers:
   - chapter jumps: Rise & Organize, Fitness, Errands, Social, Wind-Down, Night in bed
-  - quick scenes: condo morning, Plan the day (desk), Mochi's accidents, Mom's call, Nina's call, Grit, TJ Maxx, coffee meetup, e-bike trail, garage sauna with the cars, YouTube in bed, and the dogs-downstairs finale
+  - quick scenes: singing practice, the kick, condo morning, Plan the day (desk), Mochi's accidents, Mom's call, Nina's call, Grit, TJ Maxx, coffee meetup, e-bike trail, garage sauna with the cars, YouTube in bed, and the dogs-downstairs finale
   - the full day map (every stop)
 
   Jumping cleanly abandons whatever was in progress: minigames, dialogue, call cards and fades are cleared before the new set loads. Walking into an exit with stops left opens the map instead of blocking you.

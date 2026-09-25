@@ -5,13 +5,14 @@ import { Input } from '../engine/input';
 import { Audio, haptic } from '../engine/audio';
 import { tweens } from '../engine/tween';
 import { clamp, damp, dampAngle, easeInOutCubic, easeOutBack, sleep } from '../engine/util';
-import { Actor, VIEW } from '../art/characters/actor';
+import { Actor, VIEW, type ActorState } from '../art/characters/actor';
 import { LOUISE_LOOK } from '../art/characters/human';
+import { KICK_FILES } from '../art/characters/dance';
 import { preloadSprites } from '../art/characters/sprite';
-import { Confetti, StopMarker, TapMarker } from '../art/fx';
+import { Confetti, NoteFloat, StopMarker, TapMarker } from '../art/fx';
 import { G } from '../art/geo';
 import { loadOptionalGlb } from '../engine/assets';
-import { WIND } from '../art/materials';
+import { M, WIND } from '../art/materials';
 import { ebike } from '../art/props/outdoor';
 import { UI } from '../ui/ui';
 import { MiniGames } from '../ui/minigames';
@@ -61,7 +62,17 @@ export class Game {
   private dogs: DogPack;
   private bike = ebike(new THREE.Group(), 0, 0, 0, '#3a3f45', true);
   private confetti = new Confetti();
+  private notes = new NoteFloat();
   private tap = new TapMarker();
+  private perform: 'sing' | 'dance' | null = null;
+  private noteT = 0;
+  private danTween = 0;
+  private danHome: { p: THREE.Vector3; f: number; s: ActorState } | null = null;
+  private danWatch = new THREE.Vector3(2.05, 0, -0.55);
+  private danSeated = false;
+  private kickReact = 0;
+  private prevKick = 0;
+  private danPalm: THREE.Group | null = null;
   private breadcrumbs: THREE.Mesh[] = [];
 
   private phase: Phase = 'boot';
@@ -127,7 +138,8 @@ export class Game {
       if (k === 'good') this.louise.pop(0.12);
       if (k === 'tick') this.louise.pop(0.05);
     };
-    this.r.scene.add(this.louise.root, this.confetti.mesh, this.tap.mesh);
+    this.minis.onCue = (cue) => this.onPerformCue(cue);
+    this.r.scene.add(this.louise.root, this.confetti.mesh, this.notes.root, this.tap.mesh);
     this.dogs.dogs.forEach((d) => this.r.scene.add(d.actor.root));
     const crumbMat = new THREE.MeshBasicMaterial({ color: '#ffe29a', transparent: true, opacity: 0, depthWrite: false, toneMapped: false });
     for (let i = 0; i < 7; i++) {
@@ -175,7 +187,7 @@ export class Game {
   /* =================== boot / title =================== */
   async boot() {
     await Promise.race([document.fonts?.ready ?? Promise.resolve(), sleep(1500)]);
-    await preloadSprites(['sprites/louise.webp', 'sprites/dan.webp', 'sprites/mochi.webp', 'sprites/leo.webp']);
+    await preloadSprites(['sprites/louise.webp', 'sprites/dan.webp', 'sprites/mochi.webp', 'sprites/leo.webp', ...KICK_FILES]);
     this.loadSetNow('condo');
     this.louise.root.position.set(-1.2, 0, -0.4);
     this.louise.facing = 0.3;
@@ -530,6 +542,7 @@ export class Game {
 
   /** Abandon whatever is in flight (stop, mini, dialog, call, fail card) and land cleanly on the target. */
   private async detourTo(t: DetourTarget) {
+    this.endPerformance();
     this.epoch++;
     this.minis.abort();
     this.ui.abortDialog();
@@ -651,6 +664,7 @@ export class Game {
     if (!stop.dogSpots && stop.mini.type !== 'dialogue' && stop.mini.type !== 'phone') this.dogs.stare(root.position);
     const res = await this.minis.run(stop.mini, (k) => hooks.progress?.(k));
     if (ep !== this.epoch) return;
+    this.endPerformance(false);
     hooks.done?.();
 
     // juice: hit-stop, squash, confetti, chime, meter surge, hearts
@@ -682,6 +696,7 @@ export class Game {
     }
     root.position.y = 0;
     this.louise.setState(set.vehicle ? 'ride' : 'idle');
+    this.restoreDan();
     this.dogs.release();
     void tweens.to(0.6, (k) => (this.cam.push = 1 - k), easeInOutCubic);
     this.cam.focus = null;
@@ -1212,6 +1227,7 @@ export class Game {
       this.updateLeoMarks(dt);
       if (this.phase === 'play') this.updateCalls(dt);
       if (this.set.leaves && this.set.vehicle) this.set.leaves.center.set(L.x, 0, L.z);
+      this.updateDanceReact(dt);
       this.set.update(dt, this.t);
     }
     if (this.bike.group.visible) {
@@ -1221,6 +1237,14 @@ export class Game {
     this.markers.forEach((m) => m.update(dt));
     this.exitMarker?.update(dt);
     this.confetti.update(dt);
+    this.notes.update(dt);
+    if (this.perform) {
+      this.noteT -= dt;
+      if (this.noteT <= 0) {
+        this.noteT = this.perform === 'dance' ? 0.26 : 0.4;
+        this.notes.puff(this.louise.root.position, this.perform === 'dance' ? 2 : 1);
+      }
+    }
     this.tap.update(dt);
 
     this.cam.focusWeight = damp(this.cam.focusWeight, this.cam.focus ? 1 : 0, 3, dt);
@@ -1465,7 +1489,167 @@ export class Game {
       const p = this.project(d.pos.clone().setY(d.pos.y + 0.75));
       if (p) this.ui.placeLabel(`bark-${d.name}`, p.x, p.y, true, 1);
     }
+    if (this.perform === 'dance') {
+      const p = this.project(this.louise.root.position.clone().setY(2.05));
+      if (p) this.ui.placeLabel('kick-cap', p.x, p.y, true);
+    }
   }
+
+  /** Hairbrush mic, floating notes, dog reactions, and Dan on the couch for the kick. */
+  private onPerformCue(cue: 'sing' | 'note' | 'drop') {
+    if (!this.set) return;
+    const L = this.louise.root.position;
+    if (cue === 'note') {
+      this.notes.puff(L, 2);
+      return;
+    }
+    if (cue === 'sing') {
+      this.perform = 'sing';
+      this.noteT = 0.15;
+      this.louise.setState('sing');
+      const brush = hairbrush();
+      this.louise.hold(brush);
+      // Local to the singing hand: just past the fist, beside the mouth.
+      brush.position.set(0.02, 0.07, 0.03);
+      brush.rotation.set(0.15, 0.2, 0.35);
+      brush.scale.setScalar(0.55);
+      this.dogs.watch(L, { mochi: 'tilt', leo: 'sit' });
+      this.notes.puff(L, 5);
+      return;
+    }
+    this.perform = 'dance';
+    this.noteT = 0.05;
+    this.prevKick = 0;
+    this.kickReact = 0;
+    this.louise.hold(null);
+    this.louise.setState('dance');
+    this.dogs.watch(L, { mochi: 'tilt', leo: 'howl' });
+    this.notes.puff(L, 8);
+    this.audio.howl();
+    this.ui.label('bark-leo', 'Awooo!', 'bark', 2.6);
+    this.ui.label('kick-cap', 'the kick', 'bark');
+    const dan = this.set.npcs.find((n) => n.id === 'dan');
+    if (dan && this.setId !== 'night') {
+      if (!this.danHome) this.danHome = { p: dan.root.position.clone(), f: dan.facing, s: dan.state };
+      dan.setState('cringe');
+      this.ensureDanPalm(dan);
+      const from = dan.root.position.clone();
+      const token = ++this.danTween;
+      this.danSeated = false;
+      void tweens.to(0.45, (k) => {
+        if (token !== this.danTween) return;
+        dan.root.position.lerpVectors(from, this.danWatch, k);
+        dan.facing = Math.atan2(L.x - dan.root.position.x, L.z - dan.root.position.z);
+        if (k > 0.98) this.danSeated = true;
+      });
+    }
+  }
+
+  /** Dan sinks into the couch and facepalms on each little kick. */
+  private updateDanceReact(dt: number) {
+    const dan = this.set?.npcs.find((n) => n.id === 'dan');
+    if (this.perform !== 'dance' || !dan) {
+      this.kickReact = Math.max(0, this.kickReact - dt * 3);
+      if (dan?.sprite) dan.sprite.react = this.kickReact;
+      if (this.danPalm) this.danPalm.visible = false;
+      return;
+    }
+    const env = this.louise.sprite?.kickK ?? 0;
+    if (env > 0.72 && this.prevKick <= 0.72) {
+      this.kickReact = 1;
+      this.cam.shake(0.05);
+    }
+    if (env > 0.72) this.kickReact = Math.max(this.kickReact, 0.9);
+    this.prevKick = env;
+    this.markers.forEach((m) => {
+      if (m.state !== 'done') m.state = 'hidden';
+    });
+    this.kickReact = Math.max(0, this.kickReact - dt * 2.2);
+    if (dan.sprite) dan.sprite.react = this.kickReact;
+    if (this.danSeated) {
+      const away = this.tmp.copy(this.danWatch).sub(this.louise.root.position);
+      away.y = 0;
+      if (away.lengthSq() < 1e-4) away.set(0, 0, -1);
+      away.normalize();
+      dan.root.position.copy(this.danWatch).addScaledVector(away, 0.2 * this.kickReact);
+      dan.facing = Math.atan2(this.louise.root.position.x - dan.root.position.x, this.louise.root.position.z - dan.root.position.z);
+    }
+    if (this.danPalm) {
+      const hit = this.kickReact;
+      this.danPalm.visible = hit > 0.12;
+      this.danPalm.position.set(0.02, 1.56, 0.06 + (1 - hit) * 0.22);
+      this.danPalm.rotation.z = -0.55 - hit * 0.2;
+      this.danPalm.scale.setScalar(0.9 + hit * 0.25);
+    }
+  }
+
+  private ensureDanPalm(dan: Actor) {
+    if (this.danPalm || !dan.sprite) return;
+    this.danPalm = facepalm();
+    this.danPalm.visible = false;
+    dan.sprite.addBillboard(this.danPalm);
+  }
+
+  private endPerformance(restoreDan = true) {
+    this.perform = null;
+    this.danTween++;
+    this.danSeated = false;
+    this.kickReact = 0;
+    this.prevKick = 0;
+    if (this.danPalm) this.danPalm.visible = false;
+    const dan = this.set?.npcs.find((n) => n.id === 'dan');
+    if (dan?.sprite) dan.sprite.react = 0;
+    this.louise.hold(null);
+    this.dogs.clearWatch();
+    this.ui.dropLabel('kick-cap');
+    if (restoreDan) this.restoreDan();
+  }
+
+  private restoreDan() {
+    const dan = this.set?.npcs.find((n) => n.id === 'dan');
+    if (!dan || !this.danHome) return;
+    this.danTween++;
+    dan.root.position.copy(this.danHome.p);
+    dan.facing = this.danHome.f;
+    dan.setState(this.danHome.s);
+    this.danHome = null;
+  }
+}
+
+function facepalm() {
+  const g = new THREE.Group();
+  const skin = new THREE.MeshBasicMaterial({ color: '#e4b596', toneMapped: false });
+  const deep = new THREE.MeshBasicMaterial({ color: '#c48d72', toneMapped: false });
+  const back = new THREE.Mesh(new THREE.CircleGeometry(0.078, 18), deep);
+  back.position.z = -0.008;
+  const palm = new THREE.Mesh(new THREE.CircleGeometry(0.068, 18), skin);
+  g.add(back, palm);
+  for (let i = 0; i < 4; i++) {
+    const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.011, 0.042, 3, 6), skin);
+    finger.position.set(-0.038 + i * 0.025, 0.072, 0.008);
+    g.add(finger);
+  }
+  const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.012, 0.036, 3, 6), skin);
+  thumb.position.set(-0.07, 0.02, 0.01);
+  thumb.rotation.z = 0.85;
+  g.add(thumb);
+  g.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) o.renderOrder = 8;
+  });
+  return g;
+}
+
+function hairbrush() {
+  const g = new THREE.Group();
+  const handle = new THREE.Mesh(G.cyl(0.02, 0.024, 0.22, 10), M.gloss('#e7b08a', 0.35));
+  handle.position.y = 0.06;
+  const head = new THREE.Mesh(G.sphere(0.055, 14, 10), M.gloss('#f6d7c6', 0.4));
+  head.scale.set(1.05, 1.35, 0.42);
+  head.position.y = 0.2;
+  const bristles = new THREE.Mesh(G.box(0.07, 0.09, 0.018, 0.004), M.std('#2b1d2e', 0.75));
+  bristles.position.set(0, 0.2, 0.028);
+  g.add(handle, head, bristles);
+  return g;
 }
 
 function spriteTint(k: LightKit) {

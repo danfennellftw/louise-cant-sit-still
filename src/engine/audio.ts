@@ -180,6 +180,19 @@ export class Audio {
   tinkle() {
     for (let i = 0; i < 7; i++) this.tone(1500 - i * 90 + Math.random() * 120, 0.06, 'sine', 0.035, i * 0.07);
   }
+  /** One note of an original pentatonic la-la. `step` walks the scale. */
+  la(step = 0) {
+    const scale = [0, 2, 4, 7, 9, 12, 7, 4];
+    const semi = scale[((step % scale.length) + scale.length) % scale.length];
+    const f = 523.25 * Math.pow(2, semi / 12);
+    this.tone(f, 0.24, 'triangle', 0.16);
+    this.tone(f * 2, 0.16, 'sine', 0.045, 0.02);
+  }
+  /** Leo singing along: a short original slide, not a sample. */
+  howl() {
+    this.tone(320, 0.55, 'sawtooth', 0.07, 0, undefined, 540);
+    this.tone(170, 0.62, 'sine', 0.1, 0.04, undefined, 80);
+  }
   horn() {
     for (const f of [311, 370, 466]) this.tone(f, 1.4, 'sawtooth', 0.035, 0, undefined, f * 0.985);
     for (const f of [311, 370, 466]) this.tone(f, 0.9, 'sawtooth', 0.03, 1.6, undefined, f * 0.985);

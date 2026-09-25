@@ -14,7 +14,7 @@ export class CameraRig {
   focus: THREE.Vector3 | null = null;
   focusWeight = 0;
   push = 0;
-  pushSpec = { dist: 4.5, height: 2.6, yaw: 0 };
+  pushSpec: { dist: number; height: number; yaw: number; lookY?: number } = { dist: 4.5, height: 2.6, yaw: 0, lookY: 1 };
   private trauma = 0;
   private t = 0;
   bounds: Rect | null = null;
@@ -52,7 +52,7 @@ export class CameraRig {
     const height = lerp(o?.height ?? s.height, this.pushSpec.height, p) * portrait;
     const yaw = s.yaw + this.pushSpec.yaw * p + this.orbit;
     outLook.copy(target);
-    outLook.y = lerp(s.lookY, 1.0, p);
+    outLook.y = lerp(s.lookY, this.pushSpec.lookY ?? 1, p);
     outPos.set(outLook.x + Math.sin(yaw) * dist, height, outLook.z + Math.cos(yaw) * dist);
   }
 
