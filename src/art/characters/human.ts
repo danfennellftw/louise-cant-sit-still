@@ -698,12 +698,12 @@ export class HumanRig {
       }
       case 'dance': {
         const k = littleKicks(this.danceT);
-        out.shLX = -1.05 - k.jabL * 0.55;
-        out.shRX = -1.05 - k.jabR * 0.55;
-        out.shLZ = 1.15 + k.jabL * 0.4;
-        out.shRZ = -1.15 - k.jabR * 0.4;
-        out.elL = -0.22 * (1 - k.jabL);
-        out.elR = -0.22 * (1 - k.jabR);
+        out.shLX = -0.42 - k.jabL * 0.45;
+        out.shRX = -0.42 - k.jabR * 0.45;
+        out.shLZ = 0.5;
+        out.shRZ = -0.5;
+        out.elL = -1.85 - k.jabL * 0.2;
+        out.elR = -1.85 - k.jabR * 0.2;
         out.hdX = -0.08 - k.heave * 0.2;
         out.hdZ = k.bob * 0.45;
         out.spX = Math.max(-0.06, Math.min(0.28, k.heave * 0.3));

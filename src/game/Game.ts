@@ -1558,7 +1558,11 @@ export class Game {
       this.kickReact = 1;
       this.cam.shake(0.05);
     }
+    if (env > 0.72) this.kickReact = Math.max(this.kickReact, 0.9);
     this.prevKick = env;
+    this.markers.forEach((m) => {
+      if (m.state !== 'done') m.state = 'hidden';
+    });
     this.kickReact = Math.max(0, this.kickReact - dt * 2.2);
     if (dan.sprite) dan.sprite.react = this.kickReact;
     if (this.danSeated) {

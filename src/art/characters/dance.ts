@@ -2,7 +2,7 @@
  * Louise's little-kicks loop.
  *
  * Phrase (about 4.2s), named so the pose reads at a glance:
- *   jabL / jabR — stiff thumbs-out pumps, alternating, elbows nearly locked
+ *   jabL / jabR — stiff thumbs-up pumps, elbows bent, fists punching forward
  *   kickL / kickR — short sharp side kicks, one foot planted, off the jab beat
  *   heave — jerky torso convulsion (a dry heave, not a sway)
  *   bob — head snaps side to side with the pumps
@@ -11,13 +11,13 @@
  * Original motion only — no borrowed footage, audio, or titles.
  */
 
-export const KICK_LOOP = 4.2;
+export const KICK_LOOP = 3.84;
 export const KICK_SHOW_SEC = 4.6;
 
 /** Frames where one move is clearly winning, for stills. */
 export const KICK_SHOTS = {
-  kickL: 0.26,
-  kickR: 0.68,
+  kickL: 0.08,
+  kickR: 0.4,
   jab: 0.04,
 } as const;
 
@@ -34,11 +34,22 @@ export interface LittleKickPose {
   bob: number;
 }
 
-const JAB_L = [0, 0.36, 0.72, 1.08, 1.44, 1.8, 2.16, 2.52, 2.88, 3.24, 3.6, 3.96];
-const JAB_R = JAB_L.map((t) => t + 0.18);
-const KICK_L = [0.22, 1.06, 1.9, 2.74, 3.58];
-const KICK_R = [0.64, 1.48, 2.32, 3.16, 4.0];
-const HEAVE = [0.08, 0.34, 0.66, 0.98, 1.3, 1.62, 1.94, 2.26, 2.58, 2.9, 3.22, 3.54, 3.86];
+/** Alternating pumps, a little kick on almost every beat so a still shows a foot up. */
+const JAB_L: number[] = [];
+const JAB_R: number[] = [];
+const KICK_L: number[] = [];
+const KICK_R: number[] = [];
+const HEAVE: number[] = [];
+for (let i = 0; i < 12; i++) {
+  const t = i * 0.32;
+  JAB_L.push(t);
+  JAB_R.push(t + 0.16);
+  if (i % 2 === 0) {
+    KICK_L.push(t);
+    KICK_R.push(t + 0.32);
+  }
+}
+for (let i = 0; i < 24; i++) HEAVE.push(0.04 + i * 0.16);
 
 function pulse(t: number, at: number, attack: number, hold: number, release: number) {
   let best = 0;
@@ -62,11 +73,11 @@ function maxPulse(t: number, ats: number[], attack: number, hold: number, releas
 
 export function littleKicks(danceT: number): LittleKickPose {
   const t = ((danceT % KICK_LOOP) + KICK_LOOP) % KICK_LOOP;
-  const jabL = maxPulse(t, JAB_L, 0.04, 0.055, 0.05);
-  const jabR = maxPulse(t, JAB_R, 0.04, 0.055, 0.05);
-  const kickL = maxPulse(t, KICK_L, 0.035, 0.09, 0.055);
-  const kickR = maxPulse(t, KICK_R, 0.035, 0.09, 0.055);
-  const heave = maxPulse(t, HEAVE, 0.03, 0.04, 0.055);
+  const jabL = maxPulse(t, JAB_L, 0.03, 0.07, 0.05);
+  const jabR = maxPulse(t, JAB_R, 0.03, 0.07, 0.05);
+  const kickL = maxPulse(t, KICK_L, 0.03, 0.16, 0.05);
+  const kickR = maxPulse(t, KICK_R, 0.03, 0.16, 0.05);
+  const heave = maxPulse(t, HEAVE, 0.02, 0.035, 0.04);
   let bob = jabR - jabL;
   if (Math.abs(bob) < 0.2) bob = (Math.floor(t * 5.5) % 2 === 0 ? -1 : 1) * 0.62;
   let phase: KickPhase = 'bob';

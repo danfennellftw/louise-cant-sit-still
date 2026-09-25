@@ -303,7 +303,7 @@ export function buildCondo(q: QualityLevel, night: boolean): BuiltSet {
           { who: 'dan', text: 'I\'m laughing. I\'m also concerned. Both can be true.' },
           { who: 'louise', text: 'The kick is a lifestyle.' },
         ],
-        refill: 24, hearts: 2, color: '#ff6f59', push: { dist: 2.15, height: 1.48, yaw: 0.18, lookY: 0.98 },
+        refill: 24, hearts: 2, color: '#ff6f59', push: { dist: 1.72, height: 1.32, yaw: 0.42, lookY: 1.02 },
       },
     ];
   } else {
